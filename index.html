@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Rastreamento Policial - Login</title>
+    <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=SUA_API_KEY_AQUI"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 400px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            font-size: 13px;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #00d4ff;
+            box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 25px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-login {
+            background: linear-gradient(135deg, #00d084 0%, #00a86b 100%);
+            color: white;
+        }
+
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 208, 132, 0.4);
+        }
+
+        .btn-signup {
+            background: #f0f0f0;
+            color: #333;
+            border: 2px solid #e0e0e0;
+        }
+
+        .btn-signup:hover {
+            background: #e8e8e8;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            width: 30px;
+            height: 30px;
+            border: 3px solid #f0f0f0;
+            border-top: 3px solid #00d4ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #fff5f5;
+            border: 1px solid #ff6b6b;
+            color: #c92a2a;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            display: none;
+        }
+
+        .success {
+            background: #f0fdf4;
+            border: 1px solid #00d084;
+            color: #00a86b;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            display: none;
+        }
+
+        .toggle-form {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 13px;
+            color: #666;
+        }
+
+        .toggle-form button {
+            background: none;
+            border: none;
+            color: #00d4ff;
+            cursor: pointer;
+            font-weight: 600;
+            text-decoration: underline;
+        }
+
+        .app-container {
+            display: none;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .navbar h2 {
+            font-size: 18px;
+        }
+
+        .btn-logout {
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .navbar-user {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 280px;
+            gap: 0;
+            height: calc(100vh - 60px);
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .sidebar {
+            background: #f8f9fa;
+            padding: 20px;
+            overflow-y: auto;
+            border-left: 1px solid #e0e0e0;
+            height: 100%;
+        }
+
+        .info-panel {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border-left: 4px solid #00d4ff;
+        }
+
+        .info-panel h3 {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .info-panel p {
+            font-size: 16px;
+            color: #1e3c72;
+            font-weight: bold;
+            word-break: break-word;
+        }
+
+        .button-group {
+            display: grid;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .btn-small {
+            padding: 10px 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-iniciar {
+            background: linear-gradient(135deg, #00d084 0%, #00a86b 100%);
+            color: white;
+        }
+
+        .btn-iniciar:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 208, 132, 0.4);
+        }
+
+        .btn-parar {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+            color: white;
+        }
+
+        .btn-parar:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
+        }
+
+        .btn-limpar {
+            background: #ffa500;
+            color: white;
+            font-size: 11px;
+        }
+
+        .btn-limpar:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 165, 0, 0.4);
+        }
+
+        .btn-exportar {
+            background: #667eea;
+            color: white;
+            font-size: 11px;
+        }
+
+        .btn-exportar:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-small:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        .status-ativo {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-inativo {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .divider {
+            height: 1px;
+            background: #e0e0e0;
+            margin: 15px 0;
+        }
+
+        .stats-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .stat-item {
+            background: white;
+            padding: 10px;
+            border-radius: 6px;
+            border-left: 3px solid #667eea;
+        }
+
+        .stat-label {
+            font-size: 10px;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .stat-value {
+            font-size: 16px;
+            font-weight: bold;
+            color: #1e3c72;
+        }
+
+        .precision-indicator {
+            font-size: 11px;
+            color: #666;
+            padding: 8px;
+            background: white;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .precision-indicator.excellent {
+            color: #00d084;
+            background: #f0fdf4;
+        }
+
+        .precision-indicator.good {
+            color: #ffa500;
+            background: #fffbf0;
+        }
+
+        .precision-indicator.poor {
+            color: #ff6b6b;
+            background: #fff5f5;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar {
+                height: 300px;
+                max-height: 300px;
+            }
+
+            #map {
+                height: 400px;
+            }
+        }
+
+        .info-box {
+            background: #f0f4f8;
+            border-left: 4px solid #667eea;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            color: #333;
+            margin-bottom: 15px;
+            line-height: 1.5;
+        }
+
+        .credit-badge {
+            display: inline-block;
+            background: #ffd700;
+            color: #333;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <!-- TELA DE LOGIN -->
+    <div id="loginContainer" class="container">
+        <div class="header">
+            <h1>🚗 Rastreador Policial</h1>
+            <p>Sistema de Localização em Tempo Real</p>
+        </div>
+
+        <div class="content">
+            <div class="error" id="errorMessage"></div>
+            <div class="success" id="successMessage"></div>
+
+            <div id="loginForm">
+                <div class="form-group">
+                    <label>📧 Email</label>
+                    <input type="email" id="loginEmail" placeholder="seu@email.com">
+                </div>
+
+                <div class="form-group">
+                    <label>🔒 Senha</label>
+                    <input type="password" id="loginPassword" placeholder="Sua senha">
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-login" onclick="fazerLogin()">Login</button>
+                    <button class="btn btn-signup" onclick="mostrarSignup()">Cadastro</button>
+                </div>
+
+                <div class="info-box">
+                    Demo: Use email "demo@police.com" e senha "demo123456"
+                </div>
+            </div>
+
+            <div id="signupForm" style="display: none;">
+                <div class="form-group">
+                    <label>👮 Nome Completo</label>
+                    <input type="text" id="signupName" placeholder="Seu nome">
+                </div>
+
+                <div class="form-group">
+                    <label>📧 Email</label>
+                    <input type="email" id="signupEmail" placeholder="seu@email.com">
+                </div>
+
+                <div class="form-group">
+                    <label>🔒 Senha (min. 6 caracteres)</label>
+                    <input type="password" id="signupPassword" placeholder="Criar senha">
+                </div>
+
+                <div class="form-group">
+                    <label>🏢 Corporação</label>
+                    <input type="text" id="signupCorporation" placeholder="Ex: Polícia Civil RS">
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-login" onclick="fazerSignup()">Criar Conta</button>
+                    <button class="btn btn-signup" onclick="mostrarLogin()">Voltar</button>
+                </div>
+            </div>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p style="margin-top: 15px; color: #666; font-size: 13px;">Conectando...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- APP PRINCIPAL -->
+    <div id="appContainer" class="app-container">
+        <div class="navbar">
+            <div>
+                <h2>🚗 Rastreador em Tempo Real</h2>
+                <div class="navbar-user" id="userInfo"></div>
+            </div>
+            <div>
+                <div class="credit-badge" id="creditBadge">💳 Créditos: --</div>
+                <button class="btn-logout" onclick="fazerLogout()">Sair</button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div id="map"></div>
+
+            <div class="sidebar">
+                <div id="statusBadge" class="status-badge status-inativo">
+                    ⚫ Parado
+                </div>
+
+                <div class="button-group">
+                    <button class="btn-small btn-iniciar" id="btnIniciar" onclick="iniciarRastreamento()">
+                        ▶ Iniciar
+                    </button>
+                    <button class="btn-small btn-parar" id="btnParar" onclick="pararRastreamento()" disabled>
+                        ⏹ Parar
+                    </button>
+                    <button class="btn-small btn-limpar" id="btnLimpar" onclick="limparTrajeto()">
+                        🗑 Limpar
+                    </button>
+                    <button class="btn-small btn-exportar" id="btnExportar" onclick="exportarDados()">
+                        📥 Exportar
+                    </button>
+                </div>
+
+                <div class="divider"></div>
+
+                <div id="precisaoIndicador" class="precision-indicator">
+                    📍 Aguardando localização...
+                </div>
+
+                <div class="info-panel">
+                    <h3>Status</h3>
+                    <p id="statusText">Inativo</p>
+                </div>
+
+                <div class="stats-row">
+                    <div class="stat-item">
+                        <div class="stat-label">Distância</div>
+                        <div class="stat-value" id="distancia">0 km</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Tempo</div>
+                        <div class="stat-value" id="tempo">00:00</div>
+                    </div>
+                </div>
+
+                <div class="info-panel">
+                    <h3>Latitude</h3>
+                    <p id="latitude">--</p>
+                </div>
+
+                <div class="info-panel">
+                    <h3>Longitude</h3>
+                    <p id="longitude">--</p>
+                </div>
+
+                <div class="info-panel">
+                    <h3>Pontos Registrados</h3>
+                    <p id="pontos">0</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============= CONFIGURAÇÃO FIREBASE =============
+        const firebaseConfig = {
+            apiKey: "SUA_FIREBASE_API_KEY",
+            authDomain: "seu-projeto.firebaseapp.com",
+            projectId: "seu-projeto",
+            storageBucket: "seu-projeto.appspot.com",
+            messagingSenderId: "SEU_ID",
+            appId: "SEU_APP_ID"
+        };
+
+        // Inicializar Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // ============= VARIÁVEIS GLOBAIS =============
+        let currentUser = null;
+        let map;
+        let userMarker;
+        let trajetoPolyline;
+        let rastreandoAtivo = false;
+        let pontosTrajeto = [];
+        let distanciaTotal = 0;
+        let tempoInicio = null;
+        let watchId = null;
+        let ultimaPosicao = null;
+        let userCredits = 0;
+
+        // ============= AUTENTICAÇÃO =============
+        auth.onAuthStateChanged(function(user) {
+            if (user) {
+                currentUser = user;
+                mostrarApp();
+                carregarDadosUsuario();
+            } else {
+                currentUser = null;
+                mostrarLogin();
+            }
+        });
+
+        function fazerLogin() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+
+            if (!email || !password) {
+                mostrarErro('Preencha todos os campos');
+                return;
+            }
+
+            mostrarLoading(true);
+
+            auth.signInWithEmailAndPassword(email, password)
+                .then(() => {
+                    mostrarLoading(false);
+                })
+                .catch(error => {
+                    mostrarLoading(false);
+                    mostrarErro('Erro: ' + error.message);
+                });
+        }
+
+        function fazerSignup() {
+            const name = document.getElementById('signupName').value;
+            const email = document.getElementById('signupEmail').value;
+            const password = document.getElementById('signupPassword').value;
+            const corporation = document.getElementById('signupCorporation').value;
+
+            if (!name || !email || !password || !corporation) {
+                mostrarErro('Preencha todos os campos');
+                return;
+            }
+
+            if (password.length < 6) {
+                mostrarErro('Senha deve ter no mínimo 6 caracteres');
+                return;
+            }
+
+            mostrarLoading(true);
+
+            auth.createUserWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    // Criar documento do usuário no Firestore
+                    return db.collection('users').doc(userCredential.user.uid).set({
+                        name: name,
+                        email: email,
+                        corporation: corporation,
+                        credits: 100, // Créditos iniciais de teste
+                        createdAt: new Date(),
+                        status: 'active',
+                        totalKmTracked: 0,
+                        tracksCount: 0
+                    });
+                })
+                .then(() => {
+                    mostrarLoading(false);
+                    mostrarSucesso('Conta criada! Fazendo login...');
+                    setTimeout(() => mostrarLogin(), 1500);
+                })
+                .catch(error => {
+                    mostrarLoading(false);
+                    mostrarErro('Erro: ' + error.message);
+                });
+        }
+
+        function fazerLogout() {
+            if (confirm('Tem certeza que deseja sair?')) {
+                if (rastreandoAtivo) {
+                    pararRastreamento();
+                }
+                auth.signOut().then(() => {
+                    limparFormularios();
+                }).catch(error => {
+                    mostrarErro('Erro ao sair: ' + error.message);
+                });
+            }
+        }
+
+        function carregarDadosUsuario() {
+            if (!currentUser) return;
+
+            db.collection('users').doc(currentUser.uid).get().then((doc) => {
+                if (doc.exists) {
+                    const userData = doc.data();
+                    userCredits = userData.credits || 0;
+                    document.getElementById('userInfo').textContent = `${userData.name} • ${userData.corporation}`;
+                    document.getElementById('creditBadge').textContent = `💳 Créditos: ${userCredits}`;
+                } else {
+                    // Usuário demo
+                    document.getElementById('userInfo').textContent = 'Usuário Demo';
+                    document.getElementById('creditBadge').textContent = '💳 Créditos: Ilimitados (Demo)';
+                    userCredits = 999999;
+                }
+            });
+        }
+
+        // ============= UI HELPERS =============
+        function mostrarLogin() {
+            document.getElementById('loginContainer').style.display = 'flex';
+            document.getElementById('appContainer').style.display = 'none';
+            document.getElementById('loginForm').style.display = 'block';
+            document.getElementById('signupForm').style.display = 'none';
+        }
+
+        function mostrarSignup() {
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('signupForm').style.display = 'block';
+        }
+
+        function mostrarApp() {
+            document.getElementById('loginContainer').style.display = 'none';
+            document.getElementById('appContainer').style.display = 'flex';
+            setTimeout(inicializarMapa, 500);
+        }
+
+        function mostrarLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+        }
+
+        function mostrarErro(msg) {
+            const el = document.getElementById('errorMessage');
+            el.textContent = msg;
+            el.style.display = 'block';
+            setTimeout(() => el.style.display = 'none', 4000);
+        }
+
+        function mostrarSucesso(msg) {
+            const el = document.getElementById('successMessage');
+            el.textContent = msg;
+            el.style.display = 'block';
+            setTimeout(() => el.style.display = 'none', 4000);
+        }
+
+        function limparFormularios() {
+            document.getElementById('loginEmail').value = '';
+            document.getElementById('loginPassword').value = '';
+            document.getElementById('signupName').value = '';
+            document.getElementById('signupEmail').value = '';
+            document.getElementById('signupPassword').value = '';
+            document.getElementById('signupCorporation').value = '';
+        }
+
+        // ============= MAPA E RASTREAMENTO =============
+        function inicializarMapa() {
+            if (map) return; // Só inicializa uma vez
+
+            const opcoesMapa = {
+                zoom: 18,
+                center: { lat: -30.0326, lng: -51.2093 },
+                mapTypeId: 'roadmap'
+            };
+
+            map = new google.maps.Map(document.getElementById('map'), opcoesMapa);
+
+            trajetoPolyline = new google.maps.Polyline({
+                map: map,
+                geodesic: true,
+                strokeColor: '#00d4ff',
+                strokeOpacity: 0.8,
+                strokeWeight: 3,
+                path: []
+            });
+
+            userMarker = new google.maps.Marker({
+                map: map,
+                title: 'Posição Atual',
+                icon: {
+                    path: google.maps.SymbolPath.CIRCLE,
+                    scale: 8,
+                    fillColor: '#00d084',
+                    fillOpacity: 1,
+                    strokeColor: 'white',
+                    strokeWeight: 2
+                }
+            });
+        }
+
+        function iniciarRastreamento() {
+            if (!navigator.geolocation) {
+                mostrarErro('Geolocalização não suportada!');
+                return;
+            }
+
+            if (userCredits <= 0 && userCredits !== 999999) {
+                mostrarErro('Créditos insuficientes! Adquira mais créditos.');
+                return;
+            }
+
+            rastreandoAtivo = true;
+            tempoInicio = Date.now();
+            pontosTrajeto = [];
+            distanciaTotal = 0;
+            ultimaPosicao = null;
+
+            document.getElementById('btnIniciar').disabled = true;
+            document.getElementById('btnParar').disabled = false;
+            document.getElementById('statusBadge').className = 'status-badge status-ativo';
+            document.getElementById('statusBadge').textContent = '🟢 Rastreando';
+            document.getElementById('statusText').textContent = 'Rastreando em tempo real...';
+
+            watchId = navigator.geolocation.watchPosition(
+                atualizarPosicao,
+                handleErroLocalizacao,
+                {
+                    enableHighAccuracy: true,
+                    timeout: 5000,
+                    maximumAge: 0
+                }
+            );
+        }
+
+        function atualizarPosicao(position) {
+            const { latitude, longitude, accuracy } = position.coords;
+
+            userMarker.setPosition({ lat: latitude, lng: longitude });
+            map.setCenter({ lat: latitude, lng: longitude });
+
+            const novoPonto = { lat: latitude, lng: longitude };
+
+            if (ultimaPosicao) {
+                const distancia = google.maps.geometry.spherical.computeDistanceBetween(
+                    new google.maps.LatLng(ultimaPosicao.lat, ultimaPosicao.lng),
+                    new google.maps.LatLng(latitude, longitude)
+                );
+
+                if (distancia > 5) {
+                    pontosTrajeto.push(novoPonto);
+                    distanciaTotal += distancia;
+                    trajetoPolyline.setPath(pontosTrajeto);
+                }
+            } else {
+                pontosTrajeto.push(novoPonto);
+            }
+
+            ultimaPosicao = novoPonto;
+
+            document.getElementById('latitude').textContent = latitude.toFixed(6);
+            document.getElementById('longitude').textContent = longitude.toFixed(6);
+            document.getElementById('distancia').textContent = (distanciaTotal / 1000).toFixed(2) + ' km';
+            document.getElementById('pontos').textContent = pontosTrajeto.length;
+            document.getElementById('tempo').textContent = formatarTempo(Date.now() - tempoInicio);
+
+            atualizarIndicadorPrecisao(accuracy);
+        }
+
+        function atualizarIndicadorPrecisao(accuracy) {
+            const elemento = document.getElementById('precisaoIndicador');
+            elemento.textContent = `📍 Precisão: ${accuracy.toFixed(1)}m`;
+
+            elemento.className = 'precision-indicator';
+            if (accuracy < 10) {
+                elemento.classList.add('excellent');
+            } else if (accuracy < 30) {
+                elemento.classList.add('good');
+            } else {
+                elemento.classList.add('poor');
+            }
+        }
+
+        function pararRastreamento() {
+            rastreandoAtivo = false;
+            if (watchId !== null) {
+                navigator.geolocation.clearWatch(watchId);
+            }
+
+            // Descontar crédito se não for demo
+            if (userCredits !== 999999) {
+                descontarCredito(0.5); // 0.5 crédito por rastreamento
+            }
+
+            document.getElementById('btnIniciar').disabled = false;
+            document.getElementById('btnParar').disabled = true;
+            document.getElementById('statusBadge').className = 'status-badge status-inativo';
+            document.getElementById('statusBadge').textContent = '🟡 Parado';
+            document.getElementById('statusText').textContent = 'Rastreamento parado';
+        }
+
+        function descontarCredito(valor) {
+            if (!currentUser) return;
+
+            db.collection('users').doc(currentUser.uid).update({
+                credits: firebase.firestore.FieldValue.increment(-valor)
+            }).then(() => {
+                userCredits -= valor;
+                document.getElementById('creditBadge').textContent = `💳 Créditos: ${userCredits.toFixed(2)}`;
+                salvarRastreamento();
+            });
+        }
+
+        function salvarRastreamento() {
+            if (!currentUser || pontosTrajeto.length === 0) return;
+
+            const kmPercorridos = distanciaTotal / 1000;
+
+            db.collection('users').doc(currentUser.uid).collection('tracks').add({
+                points: pontosTrajeto,
+                distance: kmPercorridos,
+                duration: Date.now() - tempoInicio,
+                createdAt: new Date(),
+                status: 'completed'
+            }).then(() => {
+                mostrarSucesso('Rastreamento salvo com sucesso!');
+            });
+
+            // Atualizar estatísticas do usuário
+            db.collection('users').doc(currentUser.uid).update({
+                totalKmTracked: firebase.firestore.FieldValue.increment(kmPercorridos),
+                tracksCount: firebase.firestore.FieldValue.increment(1)
+            });
+        }
+
+        function limparTrajeto() {
+            if (confirm('Limpar todo o trajeto?')) {
+                pontosTrajeto = [];
+                distanciaTotal = 0;
+                ultimaPosicao = null;
+                trajetoPolyline.setPath([]);
+
+                document.getElementById('distancia').textContent = '0 km';
+                document.getElementById('pontos').textContent = '0';
+                document.getElementById('tempo').textContent = '00:00';
+            }
+        }
+
+        function exportarDados() {
+            if (pontosTrajeto.length === 0) {
+                mostrarErro('Nenhum trajeto para exportar!');
+                return;
+            }
+
+            let csv = 'Latitude,Longitude,Ordem\n';
+            pontosTrajeto.forEach((ponto, index) => {
+                csv += `${ponto.lat},${ponto.lng},${index + 1}\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `trajeto_${new Date().toISOString().slice(0, 19)}.csv`;
+            a.click();
+
+            mostrarSucesso('Trajeto exportado!');
+        }
+
+        function formatarTempo(ms) {
+            const segundos = Math.floor(ms / 1000);
+            const minutos = Math.floor(segundos / 60);
+            const horas = Math.floor(minutos / 60);
+
+            const s = (segundos % 60).toString().padStart(2, '0');
+            const m = (minutos % 60).toString().padStart(2, '0');
+            const h = horas.toString().padStart(2, '0');
+
+            if (horas > 0) {
+                return `${h}:${m}:${s}`;
+            }
+            return `${m}:${s}`;
+        }
+
+        function handleErroLocalizacao(error) {
+            const mensagens = {
+                1: 'Permissão negada. Ative a localização no navegador.',
+                2: 'Localização indisponível.',
+                3: 'Solicitação expirou.'
+            };
+            console.error('Erro GPS:', mensagens[error.code] || 'Erro desconhecido');
+        }
+
+        // Atualizar tempo a cada segundo
+        setInterval(function() {
+            if (rastreandoAtivo && tempoInicio) {
+                document.getElementById('tempo').textContent = formatarTempo(Date.now() - tempoInicio);
+            }
+        }, 1000);
+    </script>
+</body>
+</html>
