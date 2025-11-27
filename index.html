@@ -224,7 +224,6 @@
 
             <div class="section">
                 <div class="section-title">Histórico de Rastreamentos</div>
-                <button class="btn-secondary" onclick="clearHistory()">🗑 Excluir Histórico</button>
                 <div class="history-list" id="historyList"></div>
             </div>
 
@@ -274,7 +273,7 @@
         let pathLatLngs = [];
         let lastTrackedPoint = null;
 
-        // GPS bruto para histórico
+        // GPS bruto para histórico (se quiser usar depois)
         let pathCoordinates = [];
 
         let isTracking = false;
@@ -338,7 +337,7 @@
                         }
 
                         if (isTracking) {
-                            // pontos brutos de alta frequência (~0,5 m)
+                            // Pontos brutos de alta frequência (~0,5 m)
                             if (pathCoordinates.length === 0) {
                                 pathCoordinates.push({ ...currentLocation });
                             } else {
@@ -349,7 +348,7 @@
                                 }
                             }
 
-                            // segmentos curtos (~2 m) para OSRM
+                            // Segmentos curtos (~2 m) para map-matching com OSRM
                             if (!lastTrackedPoint) {
                                 lastTrackedPoint = { ...currentLocation };
                             } else {
@@ -471,6 +470,7 @@
             }
         }
 
+        // Segmento ajustado à rua via OSRM
         function extendRouteAlongRoad(origin, dest) {
             const url = `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${dest.lng},${dest.lat}?overview=full&geometries=geojson`;
             fetch(url)
@@ -570,6 +570,7 @@
                     </div>
                     <div>
                         <button class="favorite-button" onclick="viewHistory(${track.id})">Ver</button>
+                        <button class="remove-button" onclick="deleteHistory(${track.id})">Excluir</button>
                     </div>
                 `;
                 list.appendChild(item);
@@ -586,13 +587,18 @@
             }
         }
 
-        function clearHistory() {
-            if (!trackHistory.length) return;
-            if (!confirm('Excluir todo o histórico de rastreamentos salvos?')) return;
-            trackHistory = [];
-            localStorage.removeItem('trackHistory');
+        function deleteHistory(id) {
+            const idx = trackHistory.findIndex(t => t.id === id);
+            if (idx === -1) return;
+            if (!confirm('Excluir este rastreamento do histórico?')) return;
+
+            trackHistory.splice(idx, 1);
+            if (trackHistory.length) {
+                localStorage.setItem('trackHistory', JSON.stringify(trackHistory));
+            } else {
+                localStorage.removeItem('trackHistory');
+            }
             renderHistory();
-            clearPath();
         }
 
         function formatDateTime(iso) {
@@ -601,7 +607,7 @@
             return d.toLocaleString('pt-BR', { hour12: false });
         }
 
-        // ---- Google Geocoding e busca ----
+        // ---- Geocoding Google / busca ----
 
         function googleGeocode(query) {
             const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(query + ', Brasil')}&key=${GOOGLE_API_KEY}`;
