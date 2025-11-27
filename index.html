@@ -13,9 +13,7 @@
             background: #1a1a1a; color: #333;
         }
         .container { display: flex; height: 100vh; }
-        #map {
-            flex: 1; width: 100%; background: #e5e3df;
-        }
+        #map { flex: 1; width: 100%; background: #e5e3df; }
         #map.click-mode { cursor: crosshair !important; }
         .sidebar {
             width: 350px; background: white; padding: 20px;
@@ -162,6 +160,10 @@
                         <span class="status-label">Velocidade:</span>
                         <span class="status-value" id="speed">--</span>
                     </div>
+                    <div class="status-item">
+                        <span class="status-label">Rastreamento:</span>
+                        <span class="status-value" id="trackingStatus" style="color:#dc3545;">Parado</span>
+                    </div>
                 </div>
                 <button class="btn-info" onclick="goToCurrentLocation()">📍 Ir para Localização Atual</button>
             </div>
@@ -253,6 +255,8 @@
     </div>
 
     <script>
+        const GOOGLE_API_KEY = 'SUA_GOOGLE_API_KEY_AQUI';
+
         let map;
         let userMarker;
         let currentLocation = null;
@@ -301,6 +305,21 @@
             loadFavorites();
         }
 
+        function setTrackingStatus(status) {
+            const el = document.getElementById('trackingStatus');
+            if (!el) return;
+            if (status === 'ativo') {
+                el.textContent = 'Ativo';
+                el.style.color = '#28a745';
+            } else if (status === 'erro') {
+                el.textContent = 'Erro';
+                el.style.color = '#dc3545';
+            } else {
+                el.textContent = 'Parado';
+                el.style.color = '#dc3545';
+            }
+        }
+
         function getCurrentLocation() {
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
@@ -326,7 +345,6 @@
                 map.setView([currentLocation.lat, currentLocation.lng], 16);
                 userMarker.setLatLng([currentLocation.lat, currentLocation.lng]);
             } else {
-                alert('⚠️ Localização não disponível!');
                 getCurrentLocation();
             }
         }
@@ -339,14 +357,15 @@
         }
 
         function startTracking() {
-            if (isTracking) {
-                alert('⚠️ Rastreamento já está em andamento!');
+            if (isTracking) return;
+            if (!navigator.geolocation) {
+                alert('Geolocalização não suportada no navegador.');
                 return;
             }
 
             isTracking = true;
             pathCoordinates = [];
-            alert('✅ Rastreamento iniciado!');
+            setTrackingStatus('ativo');
 
             watchId = navigator.geolocation.watchPosition(
                 (position) => {
@@ -358,7 +377,7 @@
                     updateLocationDisplay(position);
                     userMarker.setLatLng([currentLocation.lat, currentLocation.lng]);
 
-                    if (pathCoordinates.length === 0 || 
+                    if (pathCoordinates.length === 0 ||
                         calculateDistance(pathCoordinates[pathCoordinates.length - 1], currentLocation) > 0.005) {
                         pathCoordinates.push(currentLocation);
                     }
@@ -368,16 +387,20 @@
                 },
                 (error) => {
                     console.error('Erro no rastreamento:', error);
-                }
+                    isTracking = false;
+                    setTrackingStatus('erro');
+                },
+                { enableHighAccuracy: true, maximumAge: 30000, timeout: 27000 }
             );
         }
 
         function stopTracking() {
             if (watchId) {
                 navigator.geolocation.clearWatch(watchId);
-                isTracking = false;
-                alert('⏹️ Rastreamento parado!');
+                watchId = null;
             }
+            isTracking = false;
+            setTrackingStatus('parado');
         }
 
         function calculateDistance(loc1, loc2) {
@@ -419,17 +442,21 @@
         }
 
         function clearPath() {
-            if (confirm('Tem certeza que deseja limpar o trajeto?')) {
-                pathCoordinates = [];
-                if (pathPolyline) {
-                    map.removeLayer(pathPolyline);
-                    pathPolyline = null;
-                }
-                alert('🗑️ Trajeto limpo!');
+            pathCoordinates = [];
+            if (pathPolyline) {
+                map.removeLayer(pathPolyline);
+                pathPolyline = null;
+            }
+            const msg = document.getElementById('searchMessage');
+            if (msg) {
+                msg.innerHTML = '<div class="info-msg">🗑 Trajeto apagado.</div>';
             }
         }
 
-        // -------- AUTOCOMPLETE E BUSCA (COM NÚMERO) ----------
+        function googleGeocode(query) {
+            const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(query + ', Brasil')}&key=${GOOGLE_API_KEY}`;
+            return fetch(url).then(r => r.json());
+        }
 
         document.getElementById('addressInput').addEventListener('input', function(e) {
             const value = e.target.value.trim();
@@ -443,54 +470,31 @@
             }, 300);
         });
 
-        function buildStructuredUrl(query, limit) {
-            const base = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=${limit}&countrycodes=br`;
-            const regex = /^(.+?)\\s+(\\d+)\\s*(.*)$/; // rua + número + resto
-            const match = query.match(regex);
-            if (match) {
-                const streetName = match[1].trim();
-                const number = match[2].trim();
-                const rest = match[3].trim();
-                const city = rest || 'Porto Alegre';
-                const streetParam = encodeURIComponent(number + ' ' + streetName);
-                const cityParam = encodeURIComponent(city);
-                const stateParam = encodeURIComponent('Rio Grande do Sul');
-                const countryParam = encodeURIComponent('Brasil');
-                // Busca estruturada: street/city/state/country (sem q=)
-                return `${base}&street=${streetParam}&city=${cityParam}&state=${stateParam}&country=${countryParam}`;
-            } else {
-                // Busca normal q= quando não tiver número
-                return `${base}&q=${encodeURIComponent(query)}`;
-            }
-        }
-
         function fetchSuggestions(query) {
-            const url = buildStructuredUrl(query, 8);
-            fetch(url)
-                .then(response => response.json())
+            googleGeocode(query)
                 .then(data => {
                     const suggestionsDiv = document.getElementById('suggestions');
                     suggestionsDiv.innerHTML = '';
-                    if (data.length === 0) {
+                    if (!data.results || data.results.length === 0) {
                         suggestionsDiv.classList.remove('show');
                         return;
                     }
-                    data.forEach(result => {
+                    data.results.slice(0, 8).forEach(result => {
                         const item = document.createElement('div');
                         item.className = 'suggestion-item';
-                        item.textContent = result.display_name;
+                        item.textContent = result.formatted_address;
                         item.onclick = () => {
-                            document.getElementById('addressInput').value = result.display_name;
+                            document.getElementById('addressInput').value = result.formatted_address;
                             suggestionsDiv.classList.remove('show');
-                            const lat = parseFloat(result.lat);
-                            const lng = parseFloat(result.lon);
-                            searchAddressFromCoords(lat, lng, result.display_name);
+                            const lat = result.geometry.location.lat;
+                            const lng = result.geometry.location.lng;
+                            searchAddressFromCoords(lat, lng, result.formatted_address);
                         };
                         suggestionsDiv.appendChild(item);
                     });
                     suggestionsDiv.classList.add('show');
                 })
-                .catch(error => console.error('Erro:', error));
+                .catch(err => console.error('Erro Google Geocoding (sugestões):', err));
         }
 
         function clearSearch() {
@@ -511,21 +515,21 @@
                 return;
             }
             messageDiv.innerHTML = '<div class="success-msg">🔍 Buscando...</div>';
-            const url = buildStructuredUrl(address, 5);
-            fetch(url)
-                .then(response => response.json())
+
+            googleGeocode(address)
                 .then(data => {
                     clearMarkers();
                     clearRoute();
-                    if (data.length === 0) {
+                    if (!data.results || data.results.length === 0) {
                         messageDiv.innerHTML = '<div class="error-msg">❌ Endereço não encontrado!</div>';
                         return;
                     }
-                    messageDiv.innerHTML = `<div class="success-msg">✅ ${data.length} resultado(s) encontrado(s)</div>`;
+                    messageDiv.innerHTML = `<div class="success-msg">✅ ${data.results.length} resultado(s) encontrado(s)</div>`;
                     document.getElementById('suggestions').classList.remove('show');
-                    data.forEach((result, index) => {
-                        const lat = parseFloat(result.lat);
-                        const lng = parseFloat(result.lon);
+
+                    data.results.slice(0, 5).forEach((result, index) => {
+                        const lat = result.geometry.location.lat;
+                        const lng = result.geometry.location.lng;
                         const marker = L.marker([lat, lng], {
                             icon: L.icon({
                                 iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
@@ -535,19 +539,19 @@
                                 popupAnchor: [1, -34],
                                 shadowSize: [41, 41]
                             })
-                        }).bindPopup(result.display_name).addTo(map);
+                        }).bindPopup(result.formatted_address).addTo(map);
                         searchResultsMarkers.push(marker);
                         if (index === 0) {
                             map.setView([lat, lng], 17);
-                            selectedSearchLocation = { lat: lat, lng: lng, name: result.display_name };
+                            selectedSearchLocation = { lat: lat, lng: lng, name: result.formatted_address };
                             document.getElementById('navigationSection').style.display = 'block';
-                            document.getElementById('navigationInfo').textContent = `Destino: ${result.display_name}`;
+                            document.getElementById('navigationInfo').textContent = `Destino: ${result.formatted_address}`;
                         }
                     });
                 })
-                .catch(error => {
-                    messageDiv.innerHTML = '<div class="error-msg">❌ Erro na busca</div>';
-                    console.error('Erro:', error);
+                .catch(err => {
+                    messageDiv.innerHTML = '<div class="error-msg">❌ Erro na busca (Google)</div>';
+                    console.error('Erro Google Geocoding (busca):', err);
                 });
         }
 
@@ -572,8 +576,6 @@
             document.getElementById('navigationSection').style.display = 'block';
             document.getElementById('navigationInfo').textContent = `Destino: ${display_name}`;
         }
-
-        // -------- NAVEGAÇÃO / ROTAS (OSRM) ----------
 
         function drawRoute(origin, dest) {
             clearRoute();
@@ -626,8 +628,6 @@
             clearRoute();
             selectedSearchLocation = null;
         }
-
-        // -------- CLICK NO MAPA / NAVEGAÇÃO ----------
 
         function handleMapClick(latlng) {
             selectedMapClickLocation = { lat: latlng.lat, lng: latlng.lng };
@@ -695,8 +695,6 @@
             document.getElementById('mapClickMessage').innerHTML = '';
             clearRoute();
         }
-
-        // -------- FAVORITOS, MANUAL, EXPORT ----------
 
         function goToManualLocation() {
             const lat = parseFloat(document.getElementById('manualLat').value);
