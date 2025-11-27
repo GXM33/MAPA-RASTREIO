@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rastreador de Trajeto - Polícia</title>
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDxldFv_Hq4lLJ1KSKGJQDJtVeUMdcAs-A&libraries=places,geometry,drawing"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDxldFv_Hq4lLJ1KSKGJQDJtVeUMdcAs-A"></script>
     <style>
         * {
             margin: 0;
@@ -26,6 +26,7 @@
         #map {
             flex: 1;
             width: 100%;
+            background: #e5e3df;
         }
 
         .sidebar {
@@ -156,53 +157,6 @@
             font-weight: bold;
         }
 
-        #searchResults {
-            background: #f8f9fa;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            max-height: 250px;
-            overflow-y: auto;
-            margin-top: 10px;
-        }
-
-        .result-item {
-            padding: 10px;
-            border-bottom: 1px solid #e0e0e0;
-            cursor: pointer;
-            transition: background 0.2s;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .result-item:hover {
-            background: #e8f0ff;
-        }
-
-        .result-item:last-child {
-            border-bottom: none;
-        }
-
-        .result-text {
-            flex: 1;
-            font-size: 12px;
-        }
-
-        .result-button {
-            background: #0066cc;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 3px;
-            cursor: pointer;
-            font-size: 11px;
-            font-weight: bold;
-        }
-
-        .result-button:hover {
-            background: #0052a3;
-        }
-
         .color-legend {
             background: #f8f9fa;
             border: 1px solid #ddd;
@@ -271,6 +225,26 @@
             background: #c82333;
         }
 
+        .error-msg {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-size: 12px;
+        }
+
+        .success-msg {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-size: 12px;
+        }
+
         @media (max-width: 768px) {
             .container {
                 flex-direction: column;
@@ -322,7 +296,7 @@
                 <label>Digite um endereço ou rua:</label>
                 <input type="text" id="addressInput" placeholder="Ex: Rua das Flores, Porto Alegre">
                 <button class="btn-primary" onclick="searchAddress()">🔍 Buscar</button>
-                <div id="searchResults"></div>
+                <div id="searchMessage"></div>
             </div>
 
             <div class="section">
@@ -381,14 +355,9 @@
         let isTracking = false;
         let watchId = null;
         let searchResultsMarkers = [];
-        let routePolyline = null;
-        let directionsService;
-        let directionsRenderer;
         let favorites = JSON.parse(localStorage.getItem('favorites')) || [];
-        let currentDestination = null;
 
         function initMap() {
-            // Porto Alegre, RS
             const defaultLocation = { lat: -30.0326, lng: -51.2093 };
 
             map = new google.maps.Map(document.getElementById('map'), {
@@ -397,18 +366,6 @@
                 mapTypeControl: true,
                 fullscreenControl: true,
                 zoomControl: true,
-            });
-
-            directionsService = new google.maps.DirectionsService();
-            directionsRenderer = new google.maps.DirectionsRenderer({
-                map: map,
-                polylineOptions: {
-                    strokeColor: '#9467bd',
-                    strokeWeight: 3,
-                    strokeOpacity: 0.8,
-                    geodesic: true,
-                },
-                suppressMarkers: true,
             });
 
             userMarker = new google.maps.Marker({
@@ -437,7 +394,7 @@
                     },
                     (error) => {
                         console.error('Erro ao obter localização:', error);
-                        alert('Ative a localização para usar este aplicativo');
+                        alert('⚠️ Ative a localização para usar este aplicativo');
                     }
                 );
             }
@@ -452,13 +409,13 @@
 
         function startTracking() {
             if (isTracking) {
-                alert('Rastreamento já está em andamento!');
+                alert('⚠️ Rastreamento já está em andamento!');
                 return;
             }
 
             isTracking = true;
             pathCoordinates = [];
-            alert('Rastreamento iniciado!');
+            alert('✅ Rastreamento iniciado!');
 
             watchId = navigator.geolocation.watchPosition(
                 (position) => {
@@ -470,12 +427,8 @@
                     updateLocationDisplay(position);
                     userMarker.setPosition(currentLocation);
 
-                    // Verificar se já tem um ponto próximo
                     if (pathCoordinates.length === 0 || 
-                        google.maps.geometry.spherical.computeDistanceBetween(
-                            new google.maps.LatLng(pathCoordinates[pathCoordinates.length - 1].lat, pathCoordinates[pathCoordinates.length - 1].lng),
-                            new google.maps.LatLng(currentLocation.lat, currentLocation.lng)
-                        ) > 5) {
+                        calculateDistance(pathCoordinates[pathCoordinates.length - 1], currentLocation) > 0.005) {
                         pathCoordinates.push(currentLocation);
                     }
 
@@ -484,16 +437,26 @@
                 },
                 (error) => {
                     console.error('Erro no rastreamento:', error);
-                    alert('Erro ao rastrear: ' + error.message);
                 }
             );
+        }
+
+        function calculateDistance(loc1, loc2) {
+            const lat1 = loc1.lat * Math.PI / 180;
+            const lat2 = loc2.lat * Math.PI / 180;
+            const dLat = (loc2.lat - loc1.lat) * Math.PI / 180;
+            const dLng = (loc2.lng - loc1.lng) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1) * Math.cos(lat2) *
+                      Math.sin(dLng/2) * Math.sin(dLng/2);
+            return a;
         }
 
         function stopTracking() {
             if (watchId) {
                 navigator.geolocation.clearWatch(watchId);
                 isTracking = false;
-                alert('Rastreamento parado!');
+                alert('⏹️ Rastreamento parado!');
             }
         }
 
@@ -519,79 +482,55 @@
                     pathPolyline.setMap(null);
                     pathPolyline = null;
                 }
-                alert('Trajeto limpo!');
+                alert('🗑️ Trajeto limpo!');
             }
         }
 
         function searchAddress() {
             const address = document.getElementById('addressInput').value.trim();
+            const messageDiv = document.getElementById('searchMessage');
 
             if (!address) {
-                alert('Digite um endereço!');
+                messageDiv.innerHTML = '<div class="error-msg">⚠️ Digite um endereço!</div>';
                 return;
             }
 
-            const geocoder = new google.maps.Geocoder();
+            messageDiv.innerHTML = '<div class="success-msg">🔍 Buscando...</div>';
 
-            geocoder.geocode({ address: address }, (results, status) => {
-                if (status === 'OK') {
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`)
+                .then(response => response.json())
+                .then(data => {
                     clearMarkers();
-                    const resultsDiv = document.getElementById('searchResults');
-                    resultsDiv.innerHTML = '';
 
-                    results.slice(0, 5).forEach((result, index) => {
-                        const location = result.geometry.location;
+                    if (data.length === 0) {
+                        messageDiv.innerHTML = '<div class="error-msg">❌ Endereço não encontrado!</div>';
+                        return;
+                    }
+
+                    messageDiv.innerHTML = `<div class="success-msg">✅ ${data.length} resultado(s) encontrado(s)</div>`;
+
+                    data.slice(0, 5).forEach((result, index) => {
+                        const lat = parseFloat(result.lat);
+                        const lng = parseFloat(result.lon);
+
                         const marker = new google.maps.Marker({
-                            position: location,
+                            position: { lat: lat, lng: lng },
                             map: map,
-                            title: result.formatted_address,
+                            title: result.display_name,
                             icon: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png',
                         });
 
                         searchResultsMarkers.push(marker);
 
-                        const resultItem = document.createElement('div');
-                        resultItem.className = 'result-item';
-                        resultItem.innerHTML = `
-                            <div class="result-text">${result.formatted_address}</div>
-                            <button class="result-button" onclick="selectRoute(${location.lat()}, ${location.lng()}, '${result.formatted_address.replace(/'/g, "\\'")}')">→ Rota</button>
-                        `;
-                        resultsDiv.appendChild(resultItem);
-
-                        // Centralizar no mapa
                         if (index === 0) {
-                            map.setCenter(location);
+                            map.setCenter({ lat: lat, lng: lng });
                             map.setZoom(17);
                         }
                     });
-                } else {
-                    alert('Endereço não encontrado! Tente: "Rua das Flores, Porto Alegre"');
-                }
-            });
-        }
-
-        function selectRoute(lat, lng, address) {
-            if (!currentLocation) {
-                alert('Localização atual não disponível!');
-                return;
-            }
-
-            currentDestination = { lat: lat, lng: lng, address: address };
-
-            const request = {
-                origin: new google.maps.LatLng(currentLocation.lat, currentLocation.lng),
-                destination: new google.maps.LatLng(lat, lng),
-                travelMode: 'DRIVING',
-            };
-
-            directionsService.route(request, (result, status) => {
-                if (status === 'OK') {
-                    directionsRenderer.setDirections(result);
-                    alert('Rota traçada! Linha roxa mostra o caminho.');
-                } else {
-                    alert('Erro ao traçar rota: ' + status);
-                }
-            });
+                })
+                .catch(error => {
+                    messageDiv.innerHTML = '<div class="error-msg">❌ Erro na busca: ' + error.message + '</div>';
+                });
         }
 
         function goToManualLocation() {
@@ -599,7 +538,7 @@
             const lng = parseFloat(document.getElementById('manualLng').value);
 
             if (isNaN(lat) || isNaN(lng)) {
-                alert('Digite coordenadas válidas!');
+                alert('❌ Digite coordenadas válidas!');
                 return;
             }
 
@@ -607,26 +546,26 @@
             map.setCenter(location);
             map.setZoom(17);
 
-            const marker = new google.maps.Marker({
+            new google.maps.Marker({
                 position: location,
                 map: map,
-                title: 'Local Manual',
+                title: 'Local',
                 icon: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png',
             });
 
-            searchResultsMarkers.push(marker);
+            alert('✅ Local encontrado!');
         }
 
         function addFavorite() {
             if (!currentLocation) {
-                alert('Localização atual não disponível!');
+                alert('❌ Localização atual não disponível!');
                 return;
             }
 
             const name = document.getElementById('favoriteName').value.trim();
 
             if (!name) {
-                alert('Digite um nome para o favorito!');
+                alert('❌ Digite um nome para o favorito!');
                 return;
             }
 
@@ -641,7 +580,7 @@
             localStorage.setItem('favorites', JSON.stringify(favorites));
             document.getElementById('favoriteName').value = '';
             loadFavorites();
-            alert('Favorito adicionado!');
+            alert('⭐ Favorito adicionado!');
         }
 
         function loadFavorites() {
@@ -675,6 +614,7 @@
                 position: location,
                 map: map,
                 title: fav.name,
+                icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
             });
         }
 
@@ -688,7 +628,7 @@
 
         function exportToCSV() {
             if (pathCoordinates.length === 0) {
-                alert('Nenhum trajeto para exportar!');
+                alert('❌ Nenhum trajeto para exportar!');
                 return;
             }
 
@@ -711,7 +651,6 @@
             searchResultsMarkers = [];
         }
 
-        // Pressionar Enter na busca
         document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('addressInput').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
