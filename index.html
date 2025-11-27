@@ -53,8 +53,6 @@
         .btn-secondary:hover { background: #5a6268; }
         .btn-info { background: #17a2b8; color: white; padding: 8px; font-size: 12px; margin: 4px 0; }
         .btn-info:hover { background: #138496; }
-        .btn-active { background: #ff6b6b; color: white; }
-        .btn-active:hover { background: #ee5a52; }
         .status-box {
             background: #f8f9fa; border-left: 4px solid #0066cc;
             padding: 12px; margin-bottom: 15px; border-radius: 4px; font-size: 12px;
@@ -503,8 +501,8 @@
             document.getElementById('suggestions').classList.remove('show');
             document.getElementById('navigationSection').style.display = 'none';
             clearMarkers();
-            selectedSearchLocation = null;
             clearRoute();
+            selectedSearchLocation = null;
         }
 
         function searchAddress() {
@@ -650,8 +648,8 @@
             document.getElementById('mapClickInfo').textContent = `Local: ${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`;
             mapClickMode = false;
             document.getElementById('map').classList.remove('click-mode');
-            document.getElementById('mapClickBtn').textContent = '🖱️ Ativar Modo Click';
-            document.getElementById('mapClickBtn').classList.remove('btn-active');
+            const btn = document.getElementById('mapClickBtn');
+            btn.textContent = '🖱️ Ativar Modo Click';
         }
 
         function toggleMapClick() {
@@ -659,13 +657,11 @@
             const btn = document.getElementById('mapClickBtn');
             const msgDiv = document.getElementById('mapClickMessage');
             if (mapClickMode) {
-                btn.textContent = '✓ Modo Click Ativo - Clique no Mapa';
-                btn.classList.add('btn-active');
-                msgDiv.innerHTML = '<div class="info-msg">ℹ️ Modo click ativado! Clique no mapa para marcar um local.</div>';
+                btn.textContent = '🖱️ Modo Click Ativo';
+                msgDiv.innerHTML = '<div class="info-msg">Clique no mapa para marcar um local.</div>';
                 document.getElementById('map').classList.add('click-mode');
             } else {
                 btn.textContent = '🖱️ Ativar Modo Click';
-                btn.classList.remove('btn-active');
                 msgDiv.innerHTML = '';
                 document.getElementById('map').classList.remove('click-mode');
             }
@@ -718,21 +714,29 @@
         }
 
         function addFavorite() {
-            if (!currentLocation) {
-                alert('❌ Localização atual não disponível!');
+            const base =
+                selectedSearchLocation ||
+                selectedMapClickLocation ||
+                currentLocation;
+
+            if (!base) {
+                alert('❌ Selecione um local no mapa ou aguarde a localização atual.');
                 return;
             }
+
             const name = document.getElementById('favoriteName').value.trim();
             if (!name) {
                 alert('❌ Digite um nome para o favorito!');
                 return;
             }
+
             const favorite = {
                 name: name,
-                lat: currentLocation.lat,
-                lng: currentLocation.lng,
+                lat: base.lat,
+                lng: base.lng,
                 timestamp: new Date().toLocaleString('pt-BR'),
             };
+
             favorites.push(favorite);
             localStorage.setItem('favorites', JSON.stringify(favorites));
             document.getElementById('favoriteName').value = '';
@@ -762,8 +766,13 @@
 
         function goToFavorite(index) {
             const fav = favorites[index];
+            if (!fav) return;
+
+            clearMarkers();
+            clearRoute();
+
             map.setView([fav.lat, fav.lng], 17);
-            L.marker([fav.lat, fav.lng], {
+            const marker = L.marker([fav.lat, fav.lng], {
                 icon: L.icon({
                     iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
                     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
@@ -773,6 +782,11 @@
                     shadowSize: [41, 41]
                 })
             }).bindPopup(fav.name).addTo(map);
+            searchResultsMarkers.push(marker);
+
+            if (currentLocation) {
+                drawRoute(currentLocation, { lat: fav.lat, lng: fav.lng });
+            }
         }
 
         function removeFavorite(index) {
