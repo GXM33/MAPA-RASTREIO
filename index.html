@@ -28,6 +28,11 @@
             flex: 1;
             width: 100%;
             background: #e5e3df;
+            cursor: crosshair;
+        }
+
+        #map.click-mode {
+            cursor: crosshair !important;
         }
 
         .sidebar {
@@ -131,6 +136,27 @@
 
         .btn-secondary:hover {
             background: #5a6268;
+        }
+
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+            padding: 8px;
+            font-size: 12px;
+            margin: 4px 0;
+        }
+
+        .btn-info:hover {
+            background: #138496;
+        }
+
+        .btn-active {
+            background: #ff6b6b;
+            color: white;
+        }
+
+        .btn-active:hover {
+            background: #ee5a52;
         }
 
         .status-box {
@@ -246,6 +272,84 @@
             font-size: 12px;
         }
 
+        .info-msg {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-size: 12px;
+        }
+
+        .search-container {
+            position: relative;
+        }
+
+        .autocomplete-suggestions {
+            position: absolute;
+            background: white;
+            border: 1px solid #ddd;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            width: 100%;
+            z-index: 1000;
+            display: none;
+        }
+
+        .autocomplete-suggestions.show {
+            display: block;
+        }
+
+        .suggestion-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.2s;
+        }
+
+        .suggestion-item:hover {
+            background: #e8f0ff;
+        }
+
+        .suggestion-item:last-child {
+            border-bottom: none;
+        }
+
+        .search-buttons {
+            display: flex;
+            gap: 5px;
+        }
+
+        .search-buttons button {
+            flex: 1;
+            margin: 0;
+            padding: 10px;
+        }
+
+        .navigation-section {
+            background: #e8f4f8;
+            border: 2px solid #17a2b8;
+            border-radius: 4px;
+            padding: 12px;
+            margin: 10px 0;
+        }
+
+        .navigation-section h4 {
+            color: #17a2b8;
+            font-size: 12px;
+            margin-bottom: 8px;
+        }
+
+        .navigation-info {
+            font-size: 11px;
+            color: #555;
+            margin-bottom: 8px;
+        }
+
         @media (max-width: 768px) {
             .container {
                 flex-direction: column;
@@ -290,14 +394,42 @@
                         <span class="status-value" id="speed">--</span>
                     </div>
                 </div>
+                <button class="btn-info" onclick="goToCurrentLocation()">📍 Ir para Localização Atual</button>
             </div>
 
             <div class="section">
                 <div class="section-title">Buscar Endereço</div>
-                <label>Digite um endereço ou rua:</label>
-                <input type="text" id="addressInput" placeholder="Ex: Rua das Flores, Porto Alegre">
-                <button class="btn-primary" onclick="searchAddress()">🔍 Buscar</button>
+                <label>Digite endereço e número (ex: Rua das Flores 123):</label>
+                <div class="search-container">
+                    <input type="text" id="addressInput" placeholder="Ex: Rua das Flores 123 Porto Alegre" autocomplete="off">
+                    <div class="autocomplete-suggestions" id="suggestions"></div>
+                </div>
+                <div class="search-buttons">
+                    <button class="btn-primary" onclick="searchAddress()">🔍 Buscar</button>
+                    <button class="btn-secondary" onclick="clearSearch()">✕ Limpar</button>
+                </div>
                 <div id="searchMessage"></div>
+            </div>
+
+            <div id="navigationSection" class="navigation-section" style="display: none;">
+                <h4>🧭 Navegação</h4>
+                <div class="navigation-info" id="navigationInfo"></div>
+                <button class="btn-primary" onclick="navigateToSearched()">🗺️ Navegar para Endereço</button>
+                <button class="btn-danger" onclick="cancelNavigation()">❌ Cancelar</button>
+            </div>
+
+            <div class="section">
+                <div class="section-title">Adicionar Local no Mapa</div>
+                <label>Clique no mapa para marcar um local:</label>
+                <button id="mapClickBtn" class="btn-info" onclick="toggleMapClick()">🖱️ Ativar Modo Click</button>
+                <div id="mapClickMessage"></div>
+            </div>
+
+            <div id="mapClickNavSection" class="navigation-section" style="display: none;">
+                <h4>🧭 Navegação para Local Clicado</h4>
+                <div class="navigation-info" id="mapClickInfo"></div>
+                <button class="btn-primary" onclick="navigateToMapClick()">🗺️ Navegar para Local</button>
+                <button class="btn-danger" onclick="cancelMapClickNav()">❌ Cancelar</button>
             </div>
 
             <div class="section">
@@ -337,11 +469,11 @@
                 </div>
                 <div class="legend-item">
                     <div class="legend-color" style="background: #d62728;"></div>
-                    <span>Destino (resultado busca)</span>
+                    <span>Endereço pesquisado</span>
                 </div>
                 <div class="legend-item">
                     <div class="legend-color" style="background: #9467bd;"></div>
-                    <span>Rota para destino</span>
+                    <span>Local clicado</span>
                 </div>
             </div>
         </div>
@@ -357,6 +489,11 @@
         let watchId = null;
         let searchResultsMarkers = [];
         let favorites = JSON.parse(localStorage.getItem('favorites')) || [];
+        let autocompleteTimeout;
+        let mapClickMode = false;
+        let selectedSearchLocation = null;
+        let selectedMapClickLocation = null;
+        let mapClickMarker = null;
 
         function initMap() {
             const defaultLocation = [-30.0326, -51.2093];
@@ -380,8 +517,92 @@
                 })
             }).addTo(map);
 
+            map.on('click', function(e) {
+                if (mapClickMode) {
+                    handleMapClick(e.latlng);
+                }
+            });
+
             getCurrentLocation();
             loadFavorites();
+        }
+
+        function handleMapClick(latlng) {
+            selectedMapClickLocation = {
+                lat: latlng.lat,
+                lng: latlng.lng
+            };
+
+            if (mapClickMarker) {
+                map.removeLayer(mapClickMarker);
+            }
+
+            mapClickMarker = L.marker([latlng.lat, latlng.lng], {
+                icon: L.icon({
+                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-purple.png',
+                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41],
+                    popupAnchor: [1, -34],
+                    shadowSize: [41, 41]
+                })
+            }).addTo(map);
+
+            const messageDiv = document.getElementById('mapClickMessage');
+            messageDiv.innerHTML = `<div class="success-msg">✅ Local marcado! Lat: ${latlng.lat.toFixed(6)}, Lng: ${latlng.lng.toFixed(6)}</div>`;
+
+            document.getElementById('mapClickNavSection').style.display = 'block';
+            document.getElementById('mapClickInfo').textContent = `Local: ${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`;
+
+            mapClickMode = false;
+            document.getElementById('map').classList.remove('click-mode');
+            document.getElementById('mapClickBtn').textContent = '🖱️ Ativar Modo Click';
+            document.getElementById('mapClickBtn').classList.remove('btn-active');
+        }
+
+        function toggleMapClick() {
+            mapClickMode = !mapClickMode;
+            const btn = document.getElementById('mapClickBtn');
+            const msgDiv = document.getElementById('mapClickMessage');
+
+            if (mapClickMode) {
+                btn.textContent = '✓ Modo Click Ativo - Clique no Mapa';
+                btn.classList.add('btn-active');
+                msgDiv.innerHTML = '<div class="info-msg">ℹ️ Modo click ativado! Clique no mapa para marcar um local.</div>';
+                document.getElementById('map').classList.add('click-mode');
+            } else {
+                btn.textContent = '🖱️ Ativar Modo Click';
+                btn.classList.remove('btn-active');
+                msgDiv.innerHTML = '';
+                document.getElementById('map').classList.remove('click-mode');
+            }
+        }
+
+        function navigateToMapClick() {
+            if (!selectedMapClickLocation) {
+                alert('❌ Nenhum local selecionado!');
+                return;
+            }
+
+            if (!currentLocation) {
+                alert('❌ Localização atual não disponível!');
+                return;
+            }
+
+            alert(`🧭 Navegando para: ${selectedMapClickLocation.lat.toFixed(6)}, ${selectedMapClickLocation.lng.toFixed(6)}`);
+            
+            const distance = calculateDistanceInMeters(currentLocation, selectedMapClickLocation);
+            alert(`📏 Distância: ${distance.toFixed(0)} metros`);
+        }
+
+        function cancelMapClickNav() {
+            document.getElementById('mapClickNavSection').style.display = 'none';
+            if (mapClickMarker) {
+                map.removeLayer(mapClickMarker);
+                mapClickMarker = null;
+            }
+            selectedMapClickLocation = null;
+            document.getElementById('mapClickMessage').innerHTML = '';
         }
 
         function getCurrentLocation() {
@@ -395,12 +616,22 @@
 
                         updateLocationDisplay(position);
                         userMarker.setLatLng([currentLocation.lat, currentLocation.lng]);
-                        map.panTo([currentLocation.lat, currentLocation.lng]);
+                        map.setView([currentLocation.lat, currentLocation.lng], 16);
                     },
                     (error) => {
                         console.error('Erro ao obter localização:', error);
                     }
                 );
+            }
+        }
+
+        function goToCurrentLocation() {
+            if (currentLocation) {
+                map.setView([currentLocation.lat, currentLocation.lng], 16);
+                userMarker.setLatLng([currentLocation.lat, currentLocation.lng]);
+            } else {
+                alert('⚠️ Localização não disponível!');
+                getCurrentLocation();
             }
         }
 
@@ -456,6 +687,19 @@
             return a;
         }
 
+        function calculateDistanceInMeters(loc1, loc2) {
+            const R = 6371000;
+            const lat1 = loc1.lat * Math.PI / 180;
+            const lat2 = loc2.lat * Math.PI / 180;
+            const dLat = (loc2.lat - loc1.lat) * Math.PI / 180;
+            const dLng = (loc2.lng - loc1.lng) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1) * Math.cos(lat2) *
+                      Math.sin(dLng/2) * Math.sin(dLng/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
         function stopTracking() {
             if (watchId) {
                 navigator.geolocation.clearWatch(watchId);
@@ -490,6 +734,59 @@
             }
         }
 
+        // Autocomplete
+        document.getElementById('addressInput').addEventListener('input', function(e) {
+            const value = e.target.value.trim();
+            
+            if (value.length < 3) {
+                document.getElementById('suggestions').classList.remove('show');
+                return;
+            }
+
+            clearTimeout(autocompleteTimeout);
+            autocompleteTimeout = setTimeout(() => {
+                fetchSuggestions(value);
+            }, 300);
+        });
+
+        function fetchSuggestions(query) {
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=8&addressdetails=1`)
+                .then(response => response.json())
+                .then(data => {
+                    const suggestionsDiv = document.getElementById('suggestions');
+                    suggestionsDiv.innerHTML = '';
+
+                    if (data.length === 0) {
+                        suggestionsDiv.classList.remove('show');
+                        return;
+                    }
+
+                    data.forEach(result => {
+                        const item = document.createElement('div');
+                        item.className = 'suggestion-item';
+                        item.textContent = result.display_name;
+                        item.onclick = () => {
+                            document.getElementById('addressInput').value = result.display_name;
+                            suggestionsDiv.classList.remove('show');
+                            searchAddressFromCoords(parseFloat(result.lat), parseFloat(result.lon), result.display_name);
+                        };
+                        suggestionsDiv.appendChild(item);
+                    });
+
+                    suggestionsDiv.classList.add('show');
+                })
+                .catch(error => console.error('Erro:', error));
+        }
+
+        function clearSearch() {
+            document.getElementById('addressInput').value = '';
+            document.getElementById('searchMessage').innerHTML = '';
+            document.getElementById('suggestions').classList.remove('show');
+            document.getElementById('navigationSection').style.display = 'none';
+            clearMarkers();
+            selectedSearchLocation = null;
+        }
+
         function searchAddress() {
             const address = document.getElementById('addressInput').value.trim();
             const messageDiv = document.getElementById('searchMessage');
@@ -512,6 +809,7 @@
                     }
 
                     messageDiv.innerHTML = `<div class="success-msg">✅ ${data.length} resultado(s) encontrado(s)</div>`;
+                    document.getElementById('suggestions').classList.remove('show');
 
                     data.forEach((result, index) => {
                         const lat = parseFloat(result.lat);
@@ -532,6 +830,9 @@
 
                         if (index === 0) {
                             map.setView([lat, lng], 17);
+                            selectedSearchLocation = { lat: lat, lng: lng, name: result.display_name };
+                            document.getElementById('navigationSection').style.display = 'block';
+                            document.getElementById('navigationInfo').textContent = `Destino: ${result.display_name}`;
                         }
                     });
                 })
@@ -539,6 +840,50 @@
                     messageDiv.innerHTML = '<div class="error-msg">❌ Erro na busca</div>';
                     console.error('Erro:', error);
                 });
+        }
+
+        function searchAddressFromCoords(lat, lng, display_name) {
+            clearMarkers();
+            const messageDiv = document.getElementById('searchMessage');
+            messageDiv.innerHTML = `<div class="success-msg">✅ Endereço encontrado!</div>`;
+
+            const marker = L.marker([lat, lng], {
+                icon: L.icon({
+                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41],
+                    popupAnchor: [1, -34],
+                    shadowSize: [41, 41]
+                })
+            }).bindPopup(display_name).addTo(map);
+
+            searchResultsMarkers.push(marker);
+            map.setView([lat, lng], 17);
+            selectedSearchLocation = { lat: lat, lng: lng, name: display_name };
+            document.getElementById('navigationSection').style.display = 'block';
+            document.getElementById('navigationInfo').textContent = `Destino: ${display_name}`;
+        }
+
+        function navigateToSearched() {
+            if (!selectedSearchLocation) {
+                alert('❌ Nenhum endereço selecionado!');
+                return;
+            }
+
+            if (!currentLocation) {
+                alert('❌ Localização atual não disponível!');
+                return;
+            }
+
+            const distance = calculateDistanceInMeters(currentLocation, selectedSearchLocation);
+            alert(`🧭 Navegando para: ${selectedSearchLocation.name}\n📏 Distância: ${distance.toFixed(0)} metros`);
+        }
+
+        function cancelNavigation() {
+            document.getElementById('navigationSection').style.display = 'none';
+            clearMarkers();
+            selectedSearchLocation = null;
         }
 
         function goToManualLocation() {
@@ -669,6 +1014,12 @@
             document.getElementById('addressInput').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
                     searchAddress();
+                }
+            });
+
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.search-container')) {
+                    document.getElementById('suggestions').classList.remove('show');
                 }
             });
 
