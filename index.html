@@ -6,8 +6,8 @@
     <title>Rastreador de Trajeto - Polícia</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-    <!-- Plugin para exportar o mapa como imagem -->
-    <script src="https://api.tiles.mapbox.com/mapbox.js/plugins/leaflet-image/v0.0.4/leaflet-image.js"></script>
+    <!-- Versão oficial do leaflet-image (mapbox/leaflet-image) -->
+    <script src="https://unpkg.com/leaflet-image/leaflet-image.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -220,6 +220,7 @@
                 <button class="btn-danger" onclick="stopTracking()">⏹ Parar</button>
                 <button class="btn-secondary" onclick="clearPath()">🗑 Limpar Trajeto</button>
                 <button class="btn-primary" onclick="exportImage()">🖼️ Exportar Imagem</button>
+                <button class="btn-primary" onclick="exportCSV()">📄 Exportar Coordenadas</button>
             </div>
 
             <div class="section">
@@ -273,7 +274,7 @@
         let pathLatLngs = [];
         let lastTrackedPoint = null;
 
-        // GPS bruto para histórico (se quiser usar depois)
+        // GPS bruto (se quiser usar depois)
         let pathCoordinates = [];
 
         let isTracking = false;
@@ -337,7 +338,6 @@
                         }
 
                         if (isTracking) {
-                            // Pontos brutos de alta frequência (~0,5 m)
                             if (pathCoordinates.length === 0) {
                                 pathCoordinates.push({ ...currentLocation });
                             } else {
@@ -348,7 +348,6 @@
                                 }
                             }
 
-                            // Segmentos curtos (~2 m) para map-matching com OSRM
                             if (!lastTrackedPoint) {
                                 lastTrackedPoint = { ...currentLocation };
                             } else {
@@ -470,7 +469,6 @@
             }
         }
 
-        // Segmento ajustado à rua via OSRM
         function extendRouteAlongRoad(origin, dest) {
             const url = `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${dest.lng},${dest.lat}?overview=full&geometries=geojson`;
             fetch(url)
@@ -857,7 +855,7 @@
         // ---- Exportar imagem do mapa ----
 
         function exportImage() {
-            if (!map || !window.leafletImage) {
+            if (!map || typeof leafletImage !== 'function') {
                 alert('Função de exportação não disponível neste navegador.');
                 return;
             }
@@ -872,6 +870,26 @@
                 link.download = 'trajeto_' + Date.now() + '.png';
                 link.click();
             });
+        }
+
+        // ---- Exportar coordenadas do trajeto ----
+
+        function exportCSV() {
+            if (!pathLatLngs.length) {
+                alert('❌ Nenhum trajeto para exportar!');
+                return;
+            }
+            let csv = 'latitude,longitude\n';
+            pathLatLngs.forEach(([lat, lng]) => {
+                csv += `${lat},${lng}\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'trajeto_coordenadas_' + Date.now() + '.csv';
+            a.click();
+            URL.revokeObjectURL(url);
         }
 
         // ---- Favoritos ----
@@ -911,96 +929,3 @@
             const name = document.getElementById('favoriteName').value.trim();
             if (!name) {
                 alert('❌ Digite um nome para o favorito!');
-                return;
-            }
-
-            const favorite = {
-                name: name,
-                lat: base.lat,
-                lng: base.lng,
-                timestamp: new Date().toLocaleString('pt-BR'),
-            };
-
-            favorites.push(favorite);
-            localStorage.setItem('favorites', JSON.stringify(favorites));
-            document.getElementById('favoriteName').value = '';
-            loadFavorites();
-            alert('⭐ Favorito adicionado!');
-        }
-
-        function loadFavorites() {
-            const list = document.getElementById('favoritesList');
-            list.innerHTML = '';
-            favorites.forEach((fav, index) => {
-                const item = document.createElement('div');
-                item.className = 'favorite-item';
-                item.innerHTML = `
-                    <div>
-                        <strong>${fav.name}</strong><br>
-                        <small>${fav.timestamp}</small>
-                    </div>
-                    <div>
-                        <button class="favorite-button" onclick="goToFavorite(${index})">Ir</button>
-                        <button class="remove-button" onclick="removeFavorite(${index})">×</button>
-                    </div>
-                `;
-                list.appendChild(item);
-            });
-        }
-
-        function goToFavorite(index) {
-            const fav = favorites[index];
-            if (!fav) return;
-
-            clearMarkers();
-            clearRoute();
-
-            map.setView([fav.lat, fav.lng], 17);
-            const marker = L.marker([fav.lat, fav.lng], {
-                icon: L.icon({
-                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
-                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-                    iconSize: [25, 41],
-                    iconAnchor: [12, 41],
-                    popupAnchor: [1, -34],
-                    shadowSize: [41, 41]
-                })
-            }).bindPopup(fav.name).addTo(map);
-            searchResultsMarkers.push(marker);
-
-            if (currentLocation) {
-                drawRoute(currentLocation, { lat: fav.lat, lng: fav.lng });
-            }
-        }
-
-        function removeFavorite(index) {
-            if (confirm('Remover este favorito?')) {
-                favorites.splice(index, 1);
-                localStorage.setItem('favorites', JSON.stringify(favorites));
-                loadFavorites();
-            }
-        }
-
-        function clearMarkers() {
-            searchResultsMarkers.forEach(marker => {
-                map.removeLayer(marker);
-            });
-            searchResultsMarkers = [];
-        }
-
-        document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('addressInput').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    searchAddress();
-                }
-            });
-            document.addEventListener('click', function(e) {
-                if (!e.target.closest('.search-container')) {
-                    document.getElementById('suggestions').classList.remove('show');
-                }
-            });
-            initMap();
-        });
-    </script>
-</body>
-</html>
