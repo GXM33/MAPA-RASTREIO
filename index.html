@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rastreador de Trajeto Policial - Navegação em Tempo Real</title>
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDxldFv_Hq4lLJ1KSKGJQDJtVeUMdcAs-A&libraries=places,geometry"></script>
+    <title>Rastreador de Trajeto - Navegação em Tempo Real</title>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDxldFv_Hq4lLJ1KSKGJQDJtVeUMdcAs-A&libraries=places,geometry,routes"></script>
     <style>
         * {
             margin: 0;
@@ -35,8 +35,33 @@
             height: 100%;
         }
 
+        .location-button {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transition: all 0.3s ease;
+            z-index: 100;
+        }
+
+        .location-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+        }
+
         .sidebar {
-            width: 320px;
+            width: 340px;
             background: white;
             box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
             display: flex;
@@ -44,7 +69,7 @@
             overflow-y: auto;
         }
 
-        .header {
+        .sidebar-header {
             background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
             color: white;
             padding: 20px;
@@ -52,17 +77,17 @@
             flex-shrink: 0;
         }
 
-        .header h1 {
+        .sidebar-header h1 {
             font-size: 20px;
             margin-bottom: 5px;
         }
 
-        .header p {
+        .sidebar-header p {
             font-size: 12px;
             opacity: 0.9;
         }
 
-        .content {
+        .sidebar-content {
             flex: 1;
             padding: 20px;
             overflow-y: auto;
@@ -82,7 +107,8 @@
             letter-spacing: 0.5px;
         }
 
-        .form-group input {
+        .form-group input,
+        .form-group select {
             width: 100%;
             padding: 12px;
             border: 2px solid #e0e0e0;
@@ -90,35 +116,45 @@
             font-size: 14px;
             transition: all 0.3s;
             font-family: inherit;
+            margin-bottom: 8px;
         }
 
-        .form-group input:focus {
+        .form-group input:focus,
+        .form-group select:focus {
             outline: none;
             border-color: #00d4ff;
             box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
         }
 
-        .form-group input::placeholder {
-            color: #999;
-        }
-
-        .pac-container {
-            background-color: #fff;
-            z-index: 1050;
+        .search-results {
+            background: white;
+            border: 1px solid #e0e0e0;
             border-radius: 6px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            margin-top: 2px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 8px;
+            display: none;
         }
 
-        .pac-item {
+        .search-results.show {
+            display: block;
+        }
+
+        .search-result-item {
             padding: 10px;
-            font-size: 13px;
-            cursor: pointer;
             border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
         }
 
-        .pac-item:hover {
-            background-color: #f0f0f0;
+        .search-result-item:hover {
+            background: #f0f0f0;
+            color: #00d4ff;
+        }
+
+        .search-result-item:last-child {
+            border-bottom: none;
         }
 
         .button-group {
@@ -133,41 +169,56 @@
         }
 
         .btn {
-            padding: 12px 16px;
+            padding: 10px 12px;
             border: none;
             border-radius: 6px;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.3s;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            text-align: center;
         }
 
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .btn-primary {
+        .btn-iniciar {
             background: linear-gradient(135deg, #00d084 0%, #00a86b 100%);
             color: white;
+            grid-column: 1 / -1;
         }
 
-        .btn-primary:hover:not(:disabled) {
+        .btn-iniciar:hover:not(:disabled) {
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(0, 208, 132, 0.4);
         }
 
-        .btn-danger {
+        .btn-parar {
             background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
             color: white;
         }
 
-        .btn-danger:hover:not(:disabled) {
+        .btn-parar:hover:not(:disabled) {
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
+        }
+
+        .btn-warning {
+            background: #ffa500;
+            color: white;
+        }
+
+        .btn-warning:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 165, 0, 0.4);
+        }
+
+        .btn-info {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-info:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
         }
 
         .btn-secondary {
@@ -180,30 +231,9 @@
             background: #e8e8e8;
         }
 
-        .btn-warning {
-            background: linear-gradient(135deg, #ffa500 0%, #ff8c00 100%);
-            color: white;
-        }
-
-        .btn-warning:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(255, 165, 0, 0.4);
-        }
-
-        .btn-info {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-
-        .btn-info:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-        }
-
-        .divider {
-            height: 1px;
-            background: #e0e0e0;
-            margin: 20px 0;
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
 
         .status-badge {
@@ -232,6 +262,12 @@
             color: #856404;
         }
 
+        .divider {
+            height: 1px;
+            background: #e0e0e0;
+            margin: 20px 0;
+        }
+
         .info-panel {
             background: #f8f9fa;
             padding: 15px;
@@ -249,7 +285,7 @@
         }
 
         .info-panel p {
-            font-size: 18px;
+            font-size: 16px;
             color: #1e3c72;
             font-weight: bold;
             word-break: break-word;
@@ -310,12 +346,72 @@
             background: #fff5f5;
         }
 
+        .speed-indicator {
+            font-size: 12px;
+            padding: 8px;
+            background: white;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            text-align: center;
+            border-left: 3px solid #667eea;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .destination-item {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            border-left: 3px solid #667eea;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .destination-item:hover {
+            background: #e7f0ff;
+            border-left-color: #00d4ff;
+        }
+
+        .destination-item small {
+            display: block;
+            font-size: 11px;
+            color: #666;
+            margin-top: 3px;
+        }
+
+        .destination-item .btn-delete {
+            position: absolute;
+            right: 8px;
+            top: 8px;
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 3px 6px;
+            cursor: pointer;
+            font-size: 11px;
+            transition: all 0.2s;
+        }
+
+        .destination-item .btn-delete:hover {
+            background: #ee5a6f;
+        }
+
         .alert {
             padding: 12px;
             border-radius: 6px;
             margin-bottom: 15px;
-            font-size: 13px;
+            font-size: 12px;
             line-height: 1.5;
+            display: none;
+        }
+
+        .alert.show {
+            display: block;
         }
 
         .alert-warning {
@@ -324,55 +420,16 @@
             color: #856404;
         }
 
-        .alert-danger {
-            background: #fff5f5;
-            border: 1px solid #ff6b6b;
-            color: #c92a2a;
-        }
-
-        .alert-info {
-            background: #e7f5ff;
-            border: 1px solid #0c5fb1;
-            color: #0c5fb1;
-        }
-
         .alert-success {
             background: #f0fdf4;
             border: 1px solid #00d084;
             color: #00a86b;
         }
 
-        .hidden {
-            display: none;
-        }
-
-        .location-button {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-            color: white;
-            border: none;
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            transition: all 0.3s ease;
-            z-index: 100;
-        }
-
-        .location-button:hover {
-            transform: scale(1.1);
-            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
-        }
-
-        .location-button:active {
-            transform: scale(0.95);
+        .alert-danger {
+            background: #fff5f5;
+            border: 1px solid #ff6b6b;
+            color: #c92a2a;
         }
 
         @media (max-width: 768px) {
@@ -383,6 +440,7 @@
             .sidebar {
                 width: 100%;
                 height: 40%;
+                border-left: none;
                 box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
             }
 
@@ -397,45 +455,10 @@
             .button-group {
                 grid-template-columns: 1fr;
             }
-        }
 
-        .search-result-item {
-            padding: 10px;
-            background: white;
-            border: 1px solid #e0e0e0;
-            margin-bottom: 5px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-            transition: all 0.2s;
-        }
-
-        .search-result-item:hover {
-            background: #f0f0f0;
-            border-color: #00d4ff;
-        }
-
-        .speed-indicator {
-            font-size: 12px;
-            padding: 8px;
-            background: white;
-            border-radius: 4px;
-            margin-bottom: 10px;
-            text-align: center;
-            border-left: 3px solid #667eea;
-        }
-
-        @keyframes pulse {
-            0%, 100% {
-                opacity: 1;
+            .btn-iniciar {
+                grid-column: 1 / -1;
             }
-            50% {
-                opacity: 0.7;
-            }
-        }
-
-        .pulse {
-            animation: pulse 2s infinite;
         }
     </style>
 </head>
@@ -444,76 +467,88 @@
         <!-- MAPA -->
         <div class="map-container">
             <div id="map"></div>
-            <button class="location-button" id="btnCentralizar" title="Centralizar na minha localização">📍</button>
+            <button class="location-button" id="btnCentralizar" title="Centralizar na localização">📍</button>
         </div>
 
         <!-- SIDEBAR -->
         <div class="sidebar">
-            <div class="header">
-                <h1>🚗 Rastreador Policial</h1>
+            <div class="sidebar-header">
+                <h1>🚗 Rastreador de Trajeto</h1>
                 <p>Navegação em Tempo Real</p>
             </div>
 
-            <div class="content">
+            <div class="sidebar-content">
                 <!-- ALERTAS -->
-                <div id="alertaGPS" class="alert alert-warning hidden">
-                    ⚠️ GPS não disponível. Ative a localização do seu dispositivo.
-                </div>
-
-                <div id="alertaSucesso" class="alert alert-success hidden">
-                    ✅ Localização obtida com sucesso!
-                </div>
+                <div id="alertaSucesso" class="alert alert-success"></div>
+                <div id="alertaErro" class="alert alert-danger"></div>
+                <div id="alertaInfo" class="alert alert-warning"></div>
 
                 <!-- STATUS -->
                 <div id="statusBadge" class="status-badge status-aguardando">
                     ⏳ Aguardando GPS...
                 </div>
 
-                <!-- BUSCA DE ENDEREÇO -->
+                <!-- SELEÇÃO DE DESTINO -->
                 <div class="form-group">
-                    <label>📍 Destino (opcional)</label>
-                    <input type="text" id="inputEndereço" placeholder="Digite um endereço...">
-                    <div id="searchResults"></div>
+                    <label>🎯 Tipo de Destino:</label>
+                    <select id="tipoDestino" onchange="mudarTipoDestino()">
+                        <option value="nenhum">-- Sem Destino --</option>
+                        <option value="digitar">Digitar Endereço</option>
+                        <option value="coordenadas">Usar Coordenadas</option>
+                        <option value="favoritos">Locais Favoritos</option>
+                    </select>
+                </div>
+
+                <!-- DIGITAR ENDEREÇO -->
+                <div id="secaoDigitar" class="hidden">
+                    <div class="form-group">
+                        <label>📍 Endereço, Rua ou Lugar</label>
+                        <input type="text" id="inputEndereço" placeholder="Ex: Rua das Flores, 123">
+                        <div id="searchResults" class="search-results"></div>
+                    </div>
+                </div>
+
+                <!-- COORDENADAS -->
+                <div id="secaoCoordenadas" class="hidden">
+                    <div class="form-group">
+                        <label>📊 Latitude</label>
+                        <input type="number" id="inputLatitude" placeholder="-30.0326" step="0.0001">
+                    </div>
+                    <div class="form-group">
+                        <label>📊 Longitude</label>
+                        <input type="number" id="inputLongitude" placeholder="-51.2093" step="0.0001">
+                    </div>
+                    <button class="btn btn-info" style="width: 100%;" onclick="setarPorCoordenadas()">✓ Usar Coordenadas</button>
+                </div>
+
+                <!-- FAVORITOS -->
+                <div id="secaoFavoritos" class="hidden">
+                    <div id="listaFavoritos"></div>
+                    <button class="btn btn-secondary" style="width: 100%; margin-top: 10px;" onclick="adicionarFavorito()">➕ Adicionar Favorito</button>
                 </div>
 
                 <!-- BOTÕES PRINCIPAIS -->
-                <div class="button-group full">
-                    <button class="btn btn-primary" id="btnIniciar" onclick="iniciarRastreamento()">
-                        ▶ Iniciar Rastreamento
-                    </button>
+                <div class="button-group full" style="margin-top: 15px;">
+                    <button class="btn btn-iniciar" id="btnIniciar" onclick="iniciarRastreamento()">▶ Iniciar</button>
                 </div>
 
                 <div class="button-group">
-                    <button class="btn btn-danger" id="btnParar" onclick="pararRastreamento()" disabled>
-                        ⏹ Parar
-                    </button>
-                    <button class="btn btn-warning" id="btnLimpar" onclick="limparTrajeto()">
-                        🗑 Limpar
-                    </button>
+                    <button class="btn btn-parar" id="btnParar" onclick="pararRastreamento()" disabled>⏹ Parar</button>
+                    <button class="btn btn-warning" id="btnLimpar" onclick="limparTrajeto()">🗑 Limpar</button>
                 </div>
 
                 <div class="button-group">
-                    <button class="btn btn-info" id="btnExportar" onclick="exportarDados()">
-                        📥 Exportar
-                    </button>
-                    <button class="btn btn-secondary" id="btnLimparDestino" onclick="limparDestino()">
-                        ✕ Destino
-                    </button>
+                    <button class="btn btn-info" id="btnExportar" onclick="exportarDados()">📥 Exportar</button>
+                    <button class="btn btn-secondary" id="btnLimparDestino" onclick="limparDestino()">✕ Destino</button>
                 </div>
 
-                <!-- DIVISOR -->
                 <div class="divider"></div>
 
                 <!-- INDICADORES -->
-                <div id="precisionIndicator" class="precision-indicator">
-                    📍 Precisão: Aguardando...
-                </div>
+                <div id="precisionIndicator" class="precision-indicator">📍 Precisão: --</div>
+                <div id="speedIndicator" class="speed-indicator hidden">🚗 Velocidade: 0 km/h</div>
 
-                <div id="speedIndicator" class="speed-indicator hidden">
-                    🚗 Velocidade: 0 km/h
-                </div>
-
-                <!-- INFORMAÇÕES DE LOCALIZAÇÃO -->
+                <!-- LOCALIZAÇÃO -->
                 <div class="info-panel">
                     <h3>Latitude</h3>
                     <p id="latitude">--</p>
@@ -524,9 +559,9 @@
                     <p id="longitude">--</p>
                 </div>
 
-                <!-- ESTATÍSTICAS -->
                 <div class="divider"></div>
 
+                <!-- ESTATÍSTICAS -->
                 <div class="info-row">
                     <div class="stat-card">
                         <div class="stat-label">Distância</div>
@@ -564,21 +599,32 @@
         let tempoInicio = null;
         let watchId = null;
         let ultimaPosicao = null;
-        let ultimoTempo = null;
         let destinoSelecionado = null;
-        let autocomplete;
         let ultimaVelocidade = 0;
+        let favoritos = [];
+
+        // Carregar favoritos do localStorage
+        function carregarFavoritosLocal() {
+            const saved = localStorage.getItem('rastreador_favoritos');
+            if (saved) {
+                favoritos = JSON.parse(saved);
+            }
+        }
+
+        function salvarFavoritosLocal() {
+            localStorage.setItem('rastreador_favoritos', JSON.stringify(favoritos));
+        }
 
         // ============= INICIALIZAÇÃO =============
         window.addEventListener('load', function() {
+            carregarFavoritosLocal();
             inicializarMapa();
-            configurarAutocomplete();
-            verificarGPS();
-            atualizarTempo();
         });
 
-        // ============= MAPA =============
+        // ============= MAPA COM LOCALIZAÇÃO AUTOMÁTICA =============
         function inicializarMapa() {
+            if (map) return;
+
             const opcoesMapa = {
                 zoom: 18,
                 center: { lat: -30.0326, lng: -51.2093 },
@@ -599,7 +645,6 @@
 
             map = new google.maps.Map(document.getElementById('map'), opcoesMapa);
 
-            // Trajeto pintado
             trajetoPolyline = new google.maps.Polyline({
                 map: map,
                 geodesic: true,
@@ -609,28 +654,15 @@
                 path: []
             });
 
-            // Rota para destino
             routePolyline = new google.maps.Polyline({
                 map: map,
                 geodesic: true,
                 strokeColor: '#667eea',
                 strokeOpacity: 0.5,
                 strokeWeight: 2,
-                path: [],
-                icons: [
-                    {
-                        icon: {
-                            path: 'M 0,-1 0,1',
-                            strokeOpacity: 1,
-                            scale: 3
-                        },
-                        offset: '0',
-                        repeat: '20px'
-                    }
-                ]
+                path: []
             });
 
-            // Marcador do usuário
             userMarker = new google.maps.Marker({
                 map: map,
                 title: 'Sua Posição',
@@ -644,7 +676,6 @@
                 }
             });
 
-            // Marcador de destino (vazio inicialmente)
             destinoMarker = new google.maps.Marker({
                 map: map,
                 title: 'Destino',
@@ -658,12 +689,281 @@
                     strokeWeight: 2
                 }
             });
+
+            obterLocalizacaoAtual();
+            configurarBuscaEnderecos();
+            atualizarTempo();
+        }
+
+        function obterLocalizacaoAtual() {
+            if (!navigator.geolocation) {
+                mostrarAlerta('Geolocalização não suportada', 'danger');
+                return;
+            }
+
+            mostrarAlerta('Obtendo sua localização...', 'warning');
+
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    const { latitude, longitude, accuracy } = position.coords;
+                    
+                    ultimaPosicao = { lat: latitude, lng: longitude };
+                    
+                    map.setCenter({ lat: latitude, lng: longitude });
+                    map.setZoom(18);
+                    
+                    userMarker.setPosition({ lat: latitude, lng: longitude });
+                    
+                    document.getElementById('latitude').textContent = latitude.toFixed(6);
+                    document.getElementById('longitude').textContent = longitude.toFixed(6);
+                    document.getElementById('statusBadge').textContent = '🟡 Parado (pronto para rastrear)';
+                    document.getElementById('statusGPS').textContent = '✅ Conectado';
+                    atualizarIndicadorPrecisao(accuracy);
+                    
+                    mostrarAlerta('Localização obtida com sucesso!', 'success');
+                    setTimeout(() => limparAlerta('success'), 3000);
+                },
+                function(error) {
+                    const mensagens = {
+                        1: 'Permissão negada. Ative a localização no navegador.',
+                        2: 'Localização indisponível.',
+                        3: 'Solicitação de localização expirou.'
+                    };
+                    mostrarAlerta(mensagens[error.code] || 'Erro ao obter localização', 'danger');
+                    document.getElementById('statusGPS').textContent = '❌ Desconectado';
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                }
+            );
+        }
+
+        function configurarBuscaEnderecos() {
+            const input = document.getElementById('inputEndereço');
+            
+            input.addEventListener('input', function(e) {
+                const valor = e.target.value;
+                
+                if (valor.length < 3) {
+                    document.getElementById('searchResults').classList.remove('show');
+                    return;
+                }
+
+                buscarEnderecos(valor);
+            });
+        }
+
+        function buscarEnderecos(query) {
+            const geocoder = new google.maps.Geocoder();
+            
+            geocoder.geocode({ address: query, componentRestrictions: { country: 'BR' } }, function(results, status) {
+                if (status === 'OK' && results.length > 0) {
+                    const resultsDiv = document.getElementById('searchResults');
+                    resultsDiv.innerHTML = '';
+                    
+                    results.slice(0, 5).forEach((result) => {
+                        const div = document.createElement('div');
+                        div.className = 'search-result-item';
+                        div.innerHTML = `<strong>${result.formatted_address}</strong>`;
+                        div.onclick = () => selecionarEnderecoGeo(result);
+                        resultsDiv.appendChild(div);
+                    });
+                    
+                    resultsDiv.classList.add('show');
+                } else {
+                    document.getElementById('searchResults').classList.remove('show');
+                }
+            });
+        }
+
+        function selecionarEnderecoGeo(result) {
+            const location = result.geometry.location;
+            destinoSelecionado = location;
+            
+            document.getElementById('inputEndereço').value = result.formatted_address;
+            document.getElementById('searchResults').classList.remove('show');
+            
+            destinoMarker.setPosition(destinoSelecionado);
+            destinoMarker.setVisible(true);
+
+            const bounds = new google.maps.LatLngBounds();
+            if (ultimaPosicao) {
+                bounds.extend(new google.maps.LatLng(ultimaPosicao.lat, ultimaPosicao.lng));
+            }
+            bounds.extend(destinoSelecionado);
+            map.fitBounds(bounds);
+
+            if (rastreandoAtivo && ultimaPosicao) {
+                tracarRota(ultimaPosicao, destinoSelecionado);
+            }
+
+            mostrarAlerta(`Destino: ${result.formatted_address}`, 'success');
+        }
+
+        function mudarTipoDestino() {
+            const tipo = document.getElementById('tipoDestino').value;
+            
+            document.getElementById('secaoDigitar').classList.add('hidden');
+            document.getElementById('secaoCoordenadas').classList.add('hidden');
+            document.getElementById('secaoFavoritos').classList.add('hidden');
+
+            if (tipo === 'digitar') {
+                document.getElementById('secaoDigitar').classList.remove('hidden');
+            } else if (tipo === 'coordenadas') {
+                document.getElementById('secaoCoordenadas').classList.remove('hidden');
+            } else if (tipo === 'favoritos') {
+                document.getElementById('secaoFavoritos').classList.remove('hidden');
+                carregarFavoritos();
+            }
+        }
+
+        function setarPorCoordenadas() {
+            const lat = parseFloat(document.getElementById('inputLatitude').value);
+            const lng = parseFloat(document.getElementById('inputLongitude').value);
+
+            if (isNaN(lat) || isNaN(lng)) {
+                mostrarAlerta('Coordenadas inválidas', 'danger');
+                return;
+            }
+
+            destinoSelecionado = { lat: lat, lng: lng };
+            destinoMarker.setPosition(destinoSelecionado);
+            destinoMarker.setVisible(true);
+
+            const bounds = new google.maps.LatLngBounds();
+            if (ultimaPosicao) {
+                bounds.extend(new google.maps.LatLng(ultimaPosicao.lat, ultimaPosicao.lng));
+            }
+            bounds.extend(destinoSelecionado);
+            map.fitBounds(bounds);
+
+            if (rastreandoAtivo && ultimaPosicao) {
+                tracarRota(ultimaPosicao, destinoSelecionado);
+            }
+
+            mostrarAlerta(`Destino definido: ${lat.toFixed(4)}, ${lng.toFixed(4)}`, 'success');
+        }
+
+        function adicionarFavorito() {
+            if (!ultimaPosicao) {
+                mostrarAlerta('Obtenha sua localização primeiro', 'danger');
+                return;
+            }
+
+            const nome = prompt('Nome para este favorito:');
+            if (!nome) return;
+
+            const favorito = {
+                nome: nome,
+                lat: ultimaPosicao.lat,
+                lng: ultimaPosicao.lng,
+                data: new Date().toISOString()
+            };
+
+            favoritos.push(favorito);
+            salvarFavoritosLocal();
+            carregarFavoritos();
+            mostrarAlerta('Favorito adicionado!', 'success');
+        }
+
+        function carregarFavoritos() {
+            const lista = document.getElementById('listaFavoritos');
+            lista.innerHTML = '';
+
+            if (favoritos.length === 0) {
+                lista.innerHTML = '<p style="color: #999; font-size: 12px;">Nenhum favorito salvo</p>';
+                return;
+            }
+
+            favoritos.forEach((fav, index) => {
+                const div = document.createElement('div');
+                div.className = 'destination-item';
+                div.innerHTML = `
+                    <strong>${fav.nome}</strong>
+                    <small>Lat: ${fav.lat.toFixed(4)}, Lng: ${fav.lng.toFixed(4)}</small>
+                `;
+                
+                div.onclick = () => usarFavorito(fav);
+
+                const btnDel = document.createElement('button');
+                btnDel.className = 'btn-delete';
+                btnDel.textContent = '🗑';
+                btnDel.onclick = (e) => {
+                    e.stopPropagation();
+                    favoritos.splice(index, 1);
+                    salvarFavoritosLocal();
+                    carregarFavoritos();
+                };
+
+                div.appendChild(btnDel);
+                lista.appendChild(div);
+            });
+        }
+
+        function usarFavorito(fav) {
+            destinoSelecionado = { lat: fav.lat, lng: fav.lng };
+            destinoMarker.setPosition(destinoSelecionado);
+            destinoMarker.setVisible(true);
+
+            const bounds = new google.maps.LatLngBounds();
+            if (ultimaPosicao) {
+                bounds.extend(new google.maps.LatLng(ultimaPosicao.lat, ultimaPosicao.lng));
+            }
+            bounds.extend(destinoSelecionado);
+            map.fitBounds(bounds);
+
+            if (rastreandoAtivo && ultimaPosicao) {
+                tracarRota(ultimaPosicao, destinoSelecionado);
+            }
+
+            mostrarAlerta(`Destino: ${fav.nome}`, 'success');
+        }
+
+        function tracarRota(origem, destino) {
+            const directionsService = new google.maps.DirectionsService();
+
+            directionsService.route(
+                {
+                    origin: origem,
+                    destination: destino,
+                    travelMode: 'DRIVING'
+                },
+                function(result, status) {
+                    if (status === 'OK') {
+                        const route = result.routes[0];
+                        const caminhos = [];
+                        for (let i = 0; i < route.legs.length; i++) {
+                            const points = google.maps.geometry.encoding.decodePath(
+                                route.legs[i].polyline.points
+                            );
+                            for (let j = 0; j < points.length; j++) {
+                                caminhos.push(points[j]);
+                            }
+                        }
+                        routePolyline.setPath(caminhos);
+                    }
+                }
+            );
+        }
+
+        function limparDestino() {
+            destinoSelecionado = null;
+            destinoMarker.setVisible(false);
+            routePolyline.setPath([]);
+            document.getElementById('inputEndereço').value = '';
+            document.getElementById('inputLatitude').value = '';
+            document.getElementById('inputLongitude').value = '';
+            document.getElementById('tipoDestino').value = 'nenhum';
+            mudarTipoDestino();
+            mostrarAlerta('Destino removido', 'info');
         }
 
         // ============= RASTREAMENTO =============
         function iniciarRastreamento() {
             if (!navigator.geolocation) {
-                mostrarAlerta('Geolocalização não suportada!', 'danger');
+                mostrarAlerta('Geolocalização não suportada', 'danger');
                 return;
             }
 
@@ -677,25 +977,24 @@
             document.getElementById('btnParar').disabled = false;
             document.getElementById('statusBadge').className = 'status-badge status-ativo';
             document.getElementById('statusBadge').textContent = '🟢 Rastreando';
+            
+            mostrarAlerta('Rastreamento iniciado!', 'success');
 
             watchId = navigator.geolocation.watchPosition(
                 atualizarPosicao,
-                handleErroGPS,
+                () => {},
                 {
                     enableHighAccuracy: true,
                     timeout: 5000,
                     maximumAge: 0
                 }
             );
-
-            mostrarAlerta('Rastreamento iniciado! Sua rota está sendo registrada.', 'success');
         }
 
         function atualizarPosicao(position) {
             const { latitude, longitude, accuracy, speed } = position.coords;
-            ultimaVelocidade = speed ? speed * 3.6 : 0; // converter m/s para km/h
+            ultimaVelocidade = speed ? speed * 3.6 : 0;
 
-            // Atualizar marcador
             userMarker.setPosition({ lat: latitude, lng: longitude });
             map.setCenter({ lat: latitude, lng: longitude });
 
@@ -707,7 +1006,6 @@
                     new google.maps.LatLng(latitude, longitude)
                 );
 
-                // Filtrar pontos muito próximos (menos de 5 metros)
                 if (distancia > 5) {
                     pontosTrajeto.push(novoPonto);
                     distanciaTotal += distancia;
@@ -719,7 +1017,6 @@
 
             ultimaPosicao = novoPonto;
 
-            // Atualizar informações
             document.getElementById('latitude').textContent = latitude.toFixed(6);
             document.getElementById('longitude').textContent = longitude.toFixed(6);
             document.getElementById('distancia').textContent = (distanciaTotal / 1000).toFixed(2) + ' km';
@@ -727,16 +1024,13 @@
             document.getElementById('tempo').textContent = formatarTempo(Date.now() - tempoInicio);
             document.getElementById('statusGPS').textContent = '✅ Conectado';
 
-            // Velocidade
             if (ultimaVelocidade > 0) {
                 document.getElementById('speedIndicator').classList.remove('hidden');
                 document.getElementById('speedIndicator').textContent = `🚗 Velocidade: ${ultimaVelocidade.toFixed(1)} km/h`;
             }
 
-            // Precisão
             atualizarIndicadorPrecisao(accuracy);
 
-            // Se houver destino, traçar rota
             if (destinoSelecionado) {
                 tracarRota(novoPonto, destinoSelecionado);
             }
@@ -753,115 +1047,10 @@
             document.getElementById('statusBadge').className = 'status-badge status-parado';
             document.getElementById('statusBadge').textContent = '🟡 Parado';
             document.getElementById('statusGPS').textContent = '⏸ Pausado';
-
-            mostrarAlerta('Rastreamento parado.', 'info');
+            
+            mostrarAlerta('Rastreamento parado', 'info');
         }
 
-        function handleErroGPS(error) {
-            const mensagens = {
-                1: 'Permissão negada. Ative a localização no navegador.',
-                2: 'Localização indisponível.',
-                3: 'Solicitação de localização expirou.'
-            };
-            console.error('Erro GPS:', mensagens[error.code] || 'Erro desconhecido');
-            document.getElementById('alertaGPS').classList.remove('hidden');
-        }
-
-        function verificarGPS() {
-            if (!navigator.geolocation) {
-                document.getElementById('alertaGPS').classList.remove('hidden');
-                return;
-            }
-
-            navigator.geolocation.getCurrentPosition(
-                function(position) {
-                    document.getElementById('alertaGPS').classList.add('hidden');
-                    document.getElementById('alertaSucesso').classList.remove('hidden');
-                    setTimeout(() => {
-                        document.getElementById('alertaSucesso').classList.add('hidden');
-                    }, 3000);
-                },
-                function() {
-                    document.getElementById('alertaGPS').classList.remove('hidden');
-                }
-            );
-        }
-
-        // ============= ENDEREÇO E ROTA =============
-        function configurarAutocomplete() {
-            const input = document.getElementById('inputEndereço');
-            autocomplete = new google.maps.places.Autocomplete(input, {
-                types: ['address'],
-                componentRestrictions: { country: 'BR' }
-            });
-
-            autocomplete.addListener('place_changed', function() {
-                const place = autocomplete.getPlace();
-                if (!place.geometry) {
-                    mostrarAlerta('Endereço não encontrado.', 'warning');
-                    return;
-                }
-
-                destinoSelecionado = place.geometry.location;
-                destinoMarker.setPosition(destinoSelecionado);
-                destinoMarker.setVisible(true);
-
-                // Expandir mapa para mostrar destino
-                const bounds = new google.maps.LatLngBounds();
-                if (ultimaPosicao) {
-                    bounds.extend(new google.maps.LatLng(ultimaPosicao.lat, ultimaPosicao.lng));
-                }
-                bounds.extend(destinoSelecionado);
-                map.fitBounds(bounds);
-
-                // Se rastreando, tracar rota
-                if (rastreandoAtivo && ultimaPosicao) {
-                    tracarRota(ultimaPosicao, destinoSelecionado);
-                }
-
-                mostrarAlerta(`Destino definido: ${place.formatted_address}`, 'success');
-            });
-        }
-
-        function tracarRota(origem, destino) {
-            const directionsService = new google.maps.DirectionsService();
-
-            directionsService.route(
-                {
-                    origin: origem,
-                    destination: destino,
-                    travelMode: 'DRIVING',
-                    optimizeWaypoints: true
-                },
-                function(result, status) {
-                    if (status === 'OK') {
-                        const route = result.routes[0];
-                        const caminhos = [];
-                        
-                        for (let i = 0; i < route.legs.length; i++) {
-                            const points = google.maps.geometry.encoding.decodePath(
-                                route.legs[i].polyline.points
-                            );
-                            for (let j = 0; j < points.length; j++) {
-                                caminhos.push(points[j]);
-                            }
-                        }
-                        
-                        routePolyline.setPath(caminhos);
-                    }
-                }
-            );
-        }
-
-        function limparDestino() {
-            destinoSelecionado = null;
-            destinoMarker.setVisible(false);
-            routePolyline.setPath([]);
-            document.getElementById('inputEndereço').value = '';
-            mostrarAlerta('Destino removido.', 'info');
-        }
-
-        // ============= AÇÕES =============
         function atualizarIndicadorPrecisao(accuracy) {
             const elemento = document.getElementById('precisionIndicator');
             elemento.textContent = `📍 Precisão: ${accuracy.toFixed(1)}m`;
@@ -877,7 +1066,7 @@
         }
 
         function limparTrajeto() {
-            if (confirm('Tem certeza que deseja limpar todo o trajeto?')) {
+            if (confirm('Limpar todo o trajeto?')) {
                 pontosTrajeto = [];
                 distanciaTotal = 0;
                 ultimaPosicao = null;
@@ -887,14 +1076,14 @@
                 document.getElementById('pontos').textContent = '0';
                 document.getElementById('tempo').textContent = '00:00';
                 document.getElementById('speedIndicator').classList.add('hidden');
-
-                mostrarAlerta('Trajeto limpo.', 'info');
+                
+                mostrarAlerta('Trajeto limpo', 'info');
             }
         }
 
         function exportarDados() {
             if (pontosTrajeto.length === 0) {
-                mostrarAlerta('Nenhum trajeto para exportar!', 'warning');
+                mostrarAlerta('Nenhum trajeto para exportar!', 'danger');
                 return;
             }
 
@@ -909,7 +1098,7 @@
             a.href = url;
             a.download = `trajeto_${new Date().toISOString().slice(0, 19)}.csv`;
             a.click();
-
+            
             mostrarAlerta('Trajeto exportado com sucesso!', 'success');
         }
 
@@ -936,21 +1125,15 @@
         }
 
         function mostrarAlerta(msg, tipo) {
-            const alertas = {
-                'success': 'alert-success',
-                'danger': 'alert-danger',
-                'warning': 'alert-warning',
-                'info': 'alert-info'
-            };
+            const el = document.getElementById(`alerta${tipo.charAt(0).toUpperCase() + tipo.slice(1)}`);
+            if (!el) return;
+            el.textContent = msg;
+            el.classList.add('show');
+        }
 
-            const div = document.createElement('div');
-            div.className = `alert ${alertas[tipo] || 'alert-info'}`;
-            div.textContent = msg;
-
-            const content = document.querySelector('.content');
-            content.insertBefore(div, content.firstChild);
-
-            setTimeout(() => div.remove(), 4000);
+        function limparAlerta(tipo) {
+            const el = document.getElementById(`alerta${tipo.charAt(0).toUpperCase() + tipo.slice(1)}`);
+            if (el) el.classList.remove('show');
         }
 
         document.getElementById('btnCentralizar').addEventListener('click', function() {
