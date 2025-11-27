@@ -300,7 +300,7 @@
                 }
             });
 
-            // watcher contínuo para posição atual (sempre ativo)
+            // Watch contínuo da posição (sempre atualizado)
             if (navigator.geolocation) {
                 watchId = navigator.geolocation.watchPosition(
                     (position) => {
@@ -317,7 +317,7 @@
                             hasInitialCenter = true;
                         }
 
-                        // só grava e desenha trajeto se o rastreamento estiver ATIVO
+                        // Só grava e desenha o trajeto se o rastreamento estiver ativo
                         if (isTracking) {
                             if (pathCoordinates.length === 0) {
                                 pathCoordinates.push({ ...currentLocation });
@@ -392,20 +392,13 @@
             document.getElementById('speed').textContent = position.coords.speed ? (position.coords.speed * 3.6).toFixed(1) + ' km/h' : '--';
         }
 
+        // >>> ALTERADO: não mostra mais alerta; apenas liga o flag e o desenho começa nos próximos updates
         function startTracking() {
             if (isTracking) return;
-            if (!currentLocation) {
-                alert('Aguardando localização atual para iniciar o rastreamento...');
-                return;
-            }
-
             isTracking = true;
             pathCoordinates = [];
             setTrackingStatus('ativo');
-
-            // registra o ponto atual como início do trajeto
-            pathCoordinates.push({ ...currentLocation });
-            updatePath();
+            // o primeiro ponto será gravado assim que o próximo watchPosition chegar
         }
 
         function stopTracking() {
