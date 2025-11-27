@@ -6,6 +6,8 @@
     <title>Rastreador de Trajeto - Polícia</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <!-- Plugin para exportar o mapa como imagem -->
+    <script src="https://api.tiles.mapbox.com/mapbox.js/plugins/leaflet-image/v0.0.4/leaflet-image.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -68,8 +70,10 @@
         .legend-color {
             width: 15px; height: 15px; border-radius: 2px; margin-right: 8px;
         }
-        .favorites-list { margin-top: 10px; max-height: 150px; overflow-y: auto; }
-        .favorite-item {
+        .favorites-list, .history-list {
+            margin-top: 10px; max-height: 150px; overflow-y: auto;
+        }
+        .favorite-item, .history-item {
             background: #f8f9fa; padding: 8px; margin: 5px 0; border-radius: 4px;
             display: flex; justify-content: space-between; align-items: center; font-size: 12px;
         }
@@ -215,7 +219,12 @@
                 <button class="btn-success" onclick="startTracking()">▶ Iniciar</button>
                 <button class="btn-danger" onclick="stopTracking()">⏹ Parar</button>
                 <button class="btn-secondary" onclick="clearPath()">🗑 Limpar Trajeto</button>
-                <button class="btn-primary" onclick="exportToCSV()">📥 Exportar CSV</button>
+                <button class="btn-primary" onclick="exportImage()">🖼️ Exportar Imagem</button>
+            </div>
+
+            <div class="section">
+                <div class="section-title">Histórico de Rastreamentos</div>
+                <div class="history-list" id="historyList"></div>
             </div>
 
             <div class="section">
@@ -259,19 +268,23 @@
         let userMarker;
         let currentLocation = null;
 
-        // Para desenho "snap to road"
+        // Desenho "snap to road"
         let pathPolyline = null;
-        let pathLatLngs = [];        // pontos ao longo da rua (OSRM)
-        let lastTrackedPoint = null; // último ponto GPS usado para chamar OSRM
+        let pathLatLngs = [];        // caminho ajustado na rua
+        let lastTrackedPoint = null; // último ponto GPS usado para OSRM
 
-        // Para exportar CSV (pontos brutos de GPS)
+        // Dados brutos de GPS para histórico/exportações futuras
         let pathCoordinates = [];
 
         let isTracking = false;
         let watchId = null;
         let hasInitialCenter = false;
+
         let searchResultsMarkers = [];
         let favorites = JSON.parse(localStorage.getItem('favorites')) || [];
+        let trackHistory = JSON.parse(localStorage.getItem('trackHistory')) || [];
+        let currentTrackStartTime = null;
+
         let autocompleteTimeout;
         let mapClickMode = false;
         let selectedSearchLocation = null;
@@ -282,7 +295,7 @@
         function initMap() {
             const defaultLocation = [-30.0326, -51.2093];
 
-            map = L.map('map').setView(defaultLocation, 16);
+            map = L.map('map', { preferCanvas: true }).setView(defaultLocation, 16);
 
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap contributors',
@@ -307,7 +320,6 @@
                 }
             });
 
-            // Watch contínuo do GPS
             if (navigator.geolocation) {
                 watchId = navigator.geolocation.watchPosition(
                     (position) => {
@@ -325,23 +337,23 @@
                         }
 
                         if (isTracking) {
-                            // Salva ponto bruto para CSV
+                            // pontos brutos para histórico (mais frequente)
                             if (pathCoordinates.length === 0) {
                                 pathCoordinates.push({ ...currentLocation });
                             } else {
                                 const lastRaw = pathCoordinates[pathCoordinates.length - 1];
                                 const dRaw = calculateDistanceInMeters(lastRaw, currentLocation);
-                                if (dRaw >= 1) {
+                                if (dRaw >= 0.5) { // ~0,5 m
                                     pathCoordinates.push({ ...currentLocation });
                                 }
                             }
 
-                            // Usa OSRM para encaixar segmento na rua
+                            // segmento para OSRM (mais curto para ficar fidedigno)
                             if (!lastTrackedPoint) {
                                 lastTrackedPoint = { ...currentLocation };
                             } else {
                                 const dSeg = calculateDistanceInMeters(lastTrackedPoint, currentLocation);
-                                if (dSeg >= 8) { // chama OSRM a cada ~8m
+                                if (dSeg >= 3) { // chama OSRM a cada ~3 m
                                     extendRouteAlongRoad(lastTrackedPoint, currentLocation);
                                     lastTrackedPoint = { ...currentLocation };
                                 }
@@ -352,11 +364,12 @@
                         console.error('Erro no rastreamento:', error);
                         if (isTracking) setTrackingStatus('erro');
                     },
-                    { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 }
+                    { enableHighAccuracy: true, maximumAge: 2000, timeout: 20000 }
                 );
             }
 
             loadFavorites();
+            renderHistory();
         }
 
         function setTrackingStatus(status) {
@@ -408,7 +421,7 @@
                     }
                     console.error('Erro getCurrentPosition:', error);
                 },
-                { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 }
+                { enableHighAccuracy: true, maximumAge: 2000, timeout: 20000 }
             );
         }
 
@@ -422,6 +435,7 @@
         function startTracking() {
             if (isTracking) return;
             isTracking = true;
+            currentTrackStartTime = new Date().toISOString();
             pathCoordinates = [];
             pathLatLngs = [];
             lastTrackedPoint = currentLocation ? { ...currentLocation } : null;
@@ -435,12 +449,29 @@
         }
 
         function stopTracking() {
+            if (!isTracking) return;
             isTracking = false;
-            lastTrackedPoint = null;
             setTrackingStatus('parado');
+            lastTrackedPoint = null;
+
+            // salva no histórico se houve trajeto
+            if (pathLatLngs.length > 1) {
+                const distance = computePathDistance(pathLatLngs);
+                const track = {
+                    id: Date.now(),
+                    startedAt: currentTrackStartTime,
+                    endedAt: new Date().toISOString(),
+                    distanceMeters: distance,
+                    path: pathLatLngs
+                };
+                trackHistory.push(track);
+                if (trackHistory.length > 10) trackHistory.shift(); // guarda últimos 10
+                localStorage.setItem('trackHistory', JSON.stringify(trackHistory));
+                renderHistory();
+            }
         }
 
-        // usa OSRM /route para encaixar segmento na rua
+        // OSRM /route para encaixar segmento na rua
         function extendRouteAlongRoad(origin, dest) {
             const url = `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${dest.lng},${dest.lat}?overview=full&geometries=geojson`;
             fetch(url)
@@ -455,7 +486,6 @@
                     if (pathLatLngs.length === 0) {
                         pathLatLngs = latlngs;
                     } else {
-                        // evita repetir o primeiro ponto
                         pathLatLngs = pathLatLngs.concat(latlngs.slice(1));
                     }
                     updatePath();
@@ -476,6 +506,16 @@
                       Math.sin(dLng/2) * Math.sin(dLng/2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
             return R * c;
+        }
+
+        function computePathDistance(path) {
+            let d = 0;
+            for (let i = 1; i < path.length; i++) {
+                const a = { lat: path[i-1][0], lng: path[i-1][1] };
+                const b = { lat: path[i][0], lng: path[i][1] };
+                d += calculateDistanceInMeters(a, b);
+            }
+            return d;
         }
 
         function updatePath() {
@@ -512,7 +552,48 @@
             }
         }
 
-        // ---------- Geocoding Google ----------
+        // ---- Histórico ----
+
+        function renderHistory() {
+            const list = document.getElementById('historyList');
+            list.innerHTML = '';
+            const sorted = [...trackHistory].sort((a,b) => b.id - a.id);
+            sorted.forEach((track, index) => {
+                const item = document.createElement('div');
+                item.className = 'history-item';
+                const start = formatDateTime(track.startedAt);
+                const distKm = (track.distanceMeters / 1000).toFixed(2);
+                item.innerHTML = `
+                    <div>
+                        <strong>Rastreamento ${sorted.length - index}</strong><br>
+                        <small>${start}</small><br>
+                        <small>Distância: ${distKm} km</small>
+                    </div>
+                    <div>
+                        <button class="favorite-button" onclick="viewHistory(${track.id})">Ver</button>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        function viewHistory(id) {
+            const track = trackHistory.find(t => t.id === id);
+            if (!track) return;
+            pathLatLngs = track.path;
+            updatePath();
+            if (pathPolyline) {
+                map.fitBounds(pathPolyline.getBounds());
+            }
+        }
+
+        function formatDateTime(iso) {
+            if (!iso) return '';
+            const d = new Date(iso);
+            return d.toLocaleString('pt-BR', { hour12: false });
+        }
+
+        // ---- Geocoding Google e busca ----
 
         function googleGeocode(query) {
             const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(query + ', Brasil')}&key=${GOOGLE_API_KEY}`;
@@ -638,7 +719,7 @@
             document.getElementById('navigationInfo').textContent = `Destino: ${display_name}`;
         }
 
-        // ---------- Rotas OSRM para navegação ----------
+        // ---- Rotas OSRM para navegação ----
 
         function drawRoute(origin, dest) {
             clearRoute();
@@ -692,7 +773,7 @@
             selectedSearchLocation = null;
         }
 
-        // ---------- Click no mapa ----------
+        // ---- Click no mapa ----
 
         function handleMapClick(latlng) {
             selectedMapClickLocation = { lat: latlng.lat, lng: latlng.lng };
@@ -759,7 +840,27 @@
             clearRoute();
         }
 
-        // ---------- Outros utilitários ----------
+        // ---- Exportar imagem do mapa ----
+
+        function exportImage() {
+            if (!map || !window.leafletImage) {
+                alert('Função de exportação não disponível neste navegador.');
+                return;
+            }
+            leafletImage(map, function(err, canvas) {
+                if (err) {
+                    console.error('Erro ao gerar imagem:', err);
+                    alert('Erro ao gerar imagem do mapa.');
+                    return;
+                }
+                const link = document.createElement('a');
+                link.href = canvas.toDataURL('image/png');
+                link.download = 'trajeto_' + Date.now() + '.png';
+                link.click();
+            });
+        }
+
+        // ---- Favoritos, export CSV removido ----
 
         function goToManualLocation() {
             const lat = parseFloat(document.getElementById('manualLat').value);
@@ -864,24 +965,6 @@
                 localStorage.setItem('favorites', JSON.stringify(favorites));
                 loadFavorites();
             }
-        }
-
-        function exportToCSV() {
-            if (pathCoordinates.length === 0) {
-                alert('❌ Nenhum trajeto para exportar!');
-                return;
-            }
-            let csv = 'Latitude,Longitude\n';
-            pathCoordinates.forEach(coord => {
-                csv += `${coord.lat},${coord.lng}\n`;
-            });
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `trajeto_${new Date().getTime()}.csv`;
-            a.click();
-            window.URL.revokeObjectURL(url);
         }
 
         function clearMarkers() {
