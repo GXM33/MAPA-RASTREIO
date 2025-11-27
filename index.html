@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rastreador de Trajeto - Polícia</title>
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDxldFv_Hq4lLJ1KSKGJQDJtVeUMdcAs-A"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -358,22 +359,26 @@
         let favorites = JSON.parse(localStorage.getItem('favorites')) || [];
 
         function initMap() {
-            const defaultLocation = { lat: -30.0326, lng: -51.2093 };
+            const defaultLocation = [-30.0326, -51.2093];
 
-            map = new google.maps.Map(document.getElementById('map'), {
-                zoom: 16,
-                center: defaultLocation,
-                mapTypeControl: true,
-                fullscreenControl: true,
-                zoomControl: true,
-            });
+            map = L.map('map').setView(defaultLocation, 16);
 
-            userMarker = new google.maps.Marker({
-                position: defaultLocation,
-                map: map,
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19,
+            }).addTo(map);
+
+            userMarker = L.marker(defaultLocation, {
                 title: 'Sua Posição',
-                icon: 'http://maps.google.com/mapfiles/ms/icons/green-dot.png',
-            });
+                icon: L.icon({
+                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41],
+                    popupAnchor: [1, -34],
+                    shadowSize: [41, 41]
+                })
+            }).addTo(map);
 
             getCurrentLocation();
             loadFavorites();
@@ -389,12 +394,11 @@
                         };
 
                         updateLocationDisplay(position);
-                        userMarker.setPosition(currentLocation);
-                        map.panTo(currentLocation);
+                        userMarker.setLatLng([currentLocation.lat, currentLocation.lng]);
+                        map.panTo([currentLocation.lat, currentLocation.lng]);
                     },
                     (error) => {
                         console.error('Erro ao obter localização:', error);
-                        alert('⚠️ Ative a localização para usar este aplicativo');
                     }
                 );
             }
@@ -425,7 +429,7 @@
                     };
 
                     updateLocationDisplay(position);
-                    userMarker.setPosition(currentLocation);
+                    userMarker.setLatLng([currentLocation.lat, currentLocation.lng]);
 
                     if (pathCoordinates.length === 0 || 
                         calculateDistance(pathCoordinates[pathCoordinates.length - 1], currentLocation) > 0.005) {
@@ -433,7 +437,7 @@
                     }
 
                     updatePath();
-                    map.panTo(currentLocation);
+                    map.panTo([currentLocation.lat, currentLocation.lng]);
                 },
                 (error) => {
                     console.error('Erro no rastreamento:', error);
@@ -461,17 +465,17 @@
         }
 
         function updatePath() {
+            const latlngs = pathCoordinates.map(coord => [coord.lat, coord.lng]);
+            
             if (pathPolyline) {
-                pathPolyline.setPath(pathCoordinates);
+                pathPolyline.setLatLngs(latlngs);
             } else {
-                pathPolyline = new google.maps.Polyline({
-                    path: pathCoordinates,
-                    geodesic: true,
-                    strokeColor: '#1f77d4',
-                    strokeOpacity: 0.8,
-                    strokeWeight: 3,
-                    map: map,
-                });
+                pathPolyline = L.polyline(latlngs, {
+                    color: '#1f77d4',
+                    weight: 3,
+                    opacity: 0.8,
+                    smoothFactor: 1.0
+                }).addTo(map);
             }
         }
 
@@ -479,7 +483,7 @@
             if (confirm('Tem certeza que deseja limpar o trajeto?')) {
                 pathCoordinates = [];
                 if (pathPolyline) {
-                    pathPolyline.setMap(null);
+                    map.removeLayer(pathPolyline);
                     pathPolyline = null;
                 }
                 alert('🗑️ Trajeto limpo!');
@@ -497,7 +501,7 @@
 
             messageDiv.innerHTML = '<div class="success-msg">🔍 Buscando...</div>';
 
-            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`)
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=5`)
                 .then(response => response.json())
                 .then(data => {
                     clearMarkers();
@@ -509,27 +513,31 @@
 
                     messageDiv.innerHTML = `<div class="success-msg">✅ ${data.length} resultado(s) encontrado(s)</div>`;
 
-                    data.slice(0, 5).forEach((result, index) => {
+                    data.forEach((result, index) => {
                         const lat = parseFloat(result.lat);
                         const lng = parseFloat(result.lon);
 
-                        const marker = new google.maps.Marker({
-                            position: { lat: lat, lng: lng },
-                            map: map,
-                            title: result.display_name,
-                            icon: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png',
-                        });
+                        const marker = L.marker([lat, lng], {
+                            icon: L.icon({
+                                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+                                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                                iconSize: [25, 41],
+                                iconAnchor: [12, 41],
+                                popupAnchor: [1, -34],
+                                shadowSize: [41, 41]
+                            })
+                        }).bindPopup(result.display_name).addTo(map);
 
                         searchResultsMarkers.push(marker);
 
                         if (index === 0) {
-                            map.setCenter({ lat: lat, lng: lng });
-                            map.setZoom(17);
+                            map.setView([lat, lng], 17);
                         }
                     });
                 })
                 .catch(error => {
-                    messageDiv.innerHTML = '<div class="error-msg">❌ Erro na busca: ' + error.message + '</div>';
+                    messageDiv.innerHTML = '<div class="error-msg">❌ Erro na busca</div>';
+                    console.error('Erro:', error);
                 });
         }
 
@@ -542,16 +550,18 @@
                 return;
             }
 
-            const location = { lat: lat, lng: lng };
-            map.setCenter(location);
-            map.setZoom(17);
+            map.setView([lat, lng], 17);
 
-            new google.maps.Marker({
-                position: location,
-                map: map,
-                title: 'Local',
-                icon: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png',
-            });
+            L.marker([lat, lng], {
+                icon: L.icon({
+                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41],
+                    popupAnchor: [1, -34],
+                    shadowSize: [41, 41]
+                })
+            }).addTo(map);
 
             alert('✅ Local encontrado!');
         }
@@ -606,16 +616,18 @@
 
         function goToFavorite(index) {
             const fav = favorites[index];
-            const location = { lat: fav.lat, lng: fav.lng };
-            map.setCenter(location);
-            map.setZoom(17);
+            map.setView([fav.lat, fav.lng], 17);
 
-            new google.maps.Marker({
-                position: location,
-                map: map,
-                title: fav.name,
-                icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
-            });
+            L.marker([fav.lat, fav.lng], {
+                icon: L.icon({
+                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41],
+                    popupAnchor: [1, -34],
+                    shadowSize: [41, 41]
+                })
+            }).bindPopup(fav.name).addTo(map);
         }
 
         function removeFavorite(index) {
@@ -647,7 +659,9 @@
         }
 
         function clearMarkers() {
-            searchResultsMarkers.forEach(marker => marker.setMap(null));
+            searchResultsMarkers.forEach(marker => {
+                map.removeLayer(marker);
+            });
             searchResultsMarkers = [];
         }
 
