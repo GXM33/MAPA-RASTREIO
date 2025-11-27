@@ -7,364 +7,133 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #1a1a1a;
-            color: #333;
+            background: #1a1a1a; color: #333;
         }
-
-        .container {
-            display: flex;
-            height: 100vh;
-        }
-
+        .container { display: flex; height: 100vh; }
         #map {
-            flex: 1;
-            width: 100%;
-            background: #e5e3df;
-            cursor: crosshair;
+            flex: 1; width: 100%; background: #e5e3df;
         }
-
-        #map.click-mode {
-            cursor: crosshair !important;
-        }
-
+        #map.click-mode { cursor: crosshair !important; }
         .sidebar {
-            width: 350px;
-            background: white;
-            padding: 20px;
-            overflow-y: auto;
-            box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+            width: 350px; background: white; padding: 20px;
+            overflow-y: auto; box-shadow: -2px 0 5px rgba(0,0,0,0.1);
             border-right: 3px solid #0066cc;
         }
-
-        h1 {
-            color: #0066cc;
-            font-size: 20px;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-
-        .section {
-            margin-bottom: 25px;
-        }
-
+        h1 { color: #0066cc; font-size: 20px; margin-bottom: 20px; text-align: center; }
+        .section { margin-bottom: 25px; }
         .section-title {
-            font-size: 14px;
-            font-weight: bold;
-            color: #555;
-            margin-bottom: 10px;
-            text-transform: uppercase;
+            font-size: 14px; font-weight: bold; color: #555;
+            margin-bottom: 10px; text-transform: uppercase;
         }
-
         label {
-            display: block;
-            font-size: 12px;
-            font-weight: 600;
-            color: #666;
-            margin-bottom: 5px;
+            display: block; font-size: 12px; font-weight: 600;
+            color: #666; margin-bottom: 5px;
         }
-
-        input[type="text"],
-        input[type="number"],
-        select {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 13px;
+        input[type="text"], input[type="number"], select {
+            width: 100%; padding: 10px; margin-bottom: 10px;
+            border: 1px solid #ddd; border-radius: 4px; font-size: 13px;
         }
-
-        input[type="text"]:focus,
-        input[type="number"]:focus,
-        select:focus {
-            outline: none;
-            border-color: #0066cc;
-            box-shadow: 0 0 5px rgba(0, 102, 204, 0.3);
+        input[type="text"]:focus, input[type="number"]:focus, select:focus {
+            outline: none; border-color: #0066cc;
+            box-shadow: 0 0 5px rgba(0,102,204,0.3);
         }
-
         button {
-            width: 100%;
-            padding: 12px;
-            margin: 8px 0;
-            border: none;
-            border-radius: 4px;
-            font-size: 14px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s ease;
+            width: 100%; padding: 12px; margin: 8px 0;
+            border: none; border-radius: 4px; font-size: 14px;
+            font-weight: bold; cursor: pointer; transition: all 0.3s ease;
         }
-
-        .btn-primary {
-            background: #0066cc;
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: #0052a3;
-        }
-
-        .btn-success {
-            background: #28a745;
-            color: white;
-        }
-
-        .btn-success:hover {
-            background: #218838;
-        }
-
-        .btn-danger {
-            background: #dc3545;
-            color: white;
-        }
-
-        .btn-danger:hover {
-            background: #c82333;
-        }
-
-        .btn-secondary {
-            background: #6c757d;
-            color: white;
-        }
-
-        .btn-secondary:hover {
-            background: #5a6268;
-        }
-
-        .btn-info {
-            background: #17a2b8;
-            color: white;
-            padding: 8px;
-            font-size: 12px;
-            margin: 4px 0;
-        }
-
-        .btn-info:hover {
-            background: #138496;
-        }
-
-        .btn-active {
-            background: #ff6b6b;
-            color: white;
-        }
-
-        .btn-active:hover {
-            background: #ee5a52;
-        }
-
+        .btn-primary { background: #0066cc; color: white; }
+        .btn-primary:hover { background: #0052a3; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-success:hover { background: #218838; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-danger:hover { background: #c82333; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-secondary:hover { background: #5a6268; }
+        .btn-info { background: #17a2b8; color: white; padding: 8px; font-size: 12px; margin: 4px 0; }
+        .btn-info:hover { background: #138496; }
+        .btn-active { background: #ff6b6b; color: white; }
+        .btn-active:hover { background: #ee5a52; }
         .status-box {
-            background: #f8f9fa;
-            border-left: 4px solid #0066cc;
-            padding: 12px;
-            margin-bottom: 15px;
-            border-radius: 4px;
-            font-size: 12px;
+            background: #f8f9fa; border-left: 4px solid #0066cc;
+            padding: 12px; margin-bottom: 15px; border-radius: 4px; font-size: 12px;
         }
-
-        .status-item {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 8px;
-        }
-
-        .status-label {
-            font-weight: bold;
-            color: #555;
-        }
-
-        .status-value {
-            color: #0066cc;
-            font-weight: bold;
-        }
-
+        .status-item { display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .status-label { font-weight: bold; color: #555; }
+        .status-value { color: #0066cc; font-weight: bold; }
         .color-legend {
-            background: #f8f9fa;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            padding: 10px;
-            margin-top: 15px;
-            font-size: 12px;
+            background: #f8f9fa; border: 1px solid #ddd;
+            border-radius: 4px; padding: 10px; margin-top: 15px; font-size: 12px;
         }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            margin-bottom: 8px;
-        }
-
+        .legend-item { display: flex; align-items: center; margin-bottom: 8px; }
         .legend-color {
-            width: 15px;
-            height: 15px;
-            border-radius: 2px;
-            margin-right: 8px;
+            width: 15px; height: 15px; border-radius: 2px; margin-right: 8px;
         }
-
-        .favorites-list {
-            margin-top: 10px;
-            max-height: 150px;
-            overflow-y: auto;
-        }
-
+        .favorites-list { margin-top: 10px; max-height: 150px; overflow-y: auto; }
         .favorite-item {
-            background: #f8f9fa;
-            padding: 8px;
-            margin: 5px 0;
-            border-radius: 4px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 12px;
+            background: #f8f9fa; padding: 8px; margin: 5px 0; border-radius: 4px;
+            display: flex; justify-content: space-between; align-items: center; font-size: 12px;
         }
-
         .favorite-button {
-            background: #28a745;
-            color: white;
-            border: none;
-            padding: 3px 8px;
-            border-radius: 3px;
-            cursor: pointer;
-            font-size: 10px;
+            background: #28a745; color: white; border: none;
+            padding: 3px 8px; border-radius: 3px; cursor: pointer; font-size: 10px;
         }
-
-        .favorite-button:hover {
-            background: #218838;
-        }
-
+        .favorite-button:hover { background: #218838; }
         .remove-button {
-            background: #dc3545;
-            color: white;
-            border: none;
-            padding: 3px 8px;
-            border-radius: 3px;
-            cursor: pointer;
-            font-size: 10px;
-            margin-left: 5px;
+            background: #dc3545; color: white; border: none;
+            padding: 3px 8px; border-radius: 3px; cursor: pointer;
+            font-size: 10px; margin-left: 5px;
         }
-
-        .remove-button:hover {
-            background: #c82333;
-        }
-
+        .remove-button:hover { background: #c82333; }
         .error-msg {
-            background: #f8d7da;
-            border: 1px solid #f5c6cb;
-            color: #721c24;
-            padding: 10px;
-            border-radius: 4px;
-            margin: 10px 0;
-            font-size: 12px;
+            background: #f8d7da; border: 1px solid #f5c6cb;
+            color: #721c24; padding: 10px; border-radius: 4px;
+            margin: 10px 0; font-size: 12px;
         }
-
         .success-msg {
-            background: #d4edda;
-            border: 1px solid #c3e6cb;
-            color: #155724;
-            padding: 10px;
-            border-radius: 4px;
-            margin: 10px 0;
-            font-size: 12px;
+            background: #d4edda; border: 1px solid #c3e6cb;
+            color: #155724; padding: 10px; border-radius: 4px;
+            margin: 10px 0; font-size: 12px;
         }
-
         .info-msg {
-            background: #d1ecf1;
-            border: 1px solid #bee5eb;
-            color: #0c5460;
-            padding: 10px;
-            border-radius: 4px;
-            margin: 10px 0;
-            font-size: 12px;
+            background: #d1ecf1; border: 1px solid #bee5eb;
+            color: #0c5460; padding: 10px; border-radius: 4px;
+            margin: 10px 0; font-size: 12px;
         }
-
-        .search-container {
-            position: relative;
-        }
-
+        .search-container { position: relative; }
         .autocomplete-suggestions {
-            position: absolute;
-            background: white;
-            border: 1px solid #ddd;
-            border-top: none;
-            border-radius: 0 0 4px 4px;
-            max-height: 200px;
-            overflow-y: auto;
-            width: 100%;
-            z-index: 1000;
-            display: none;
+            position: absolute; background: white; border: 1px solid #ddd;
+            border-top: none; border-radius: 0 0 4px 4px;
+            max-height: 200px; overflow-y: auto; width: 100%;
+            z-index: 1000; display: none;
         }
-
-        .autocomplete-suggestions.show {
-            display: block;
-        }
-
+        .autocomplete-suggestions.show { display: block; }
         .suggestion-item {
-            padding: 10px;
-            border-bottom: 1px solid #eee;
-            cursor: pointer;
-            font-size: 12px;
-            transition: background 0.2s;
+            padding: 10px; border-bottom: 1px solid #eee;
+            cursor: pointer; font-size: 12px; transition: background 0.2s;
         }
-
-        .suggestion-item:hover {
-            background: #e8f0ff;
-        }
-
-        .suggestion-item:last-child {
-            border-bottom: none;
-        }
-
-        .search-buttons {
-            display: flex;
-            gap: 5px;
-        }
-
-        .search-buttons button {
-            flex: 1;
-            margin: 0;
-            padding: 10px;
-        }
-
+        .suggestion-item:hover { background: #e8f0ff; }
+        .suggestion-item:last-child { border-bottom: none; }
+        .search-buttons { display: flex; gap: 5px; }
+        .search-buttons button { flex: 1; margin: 0; padding: 10px; }
         .navigation-section {
-            background: #e8f4f8;
-            border: 2px solid #17a2b8;
-            border-radius: 4px;
-            padding: 12px;
-            margin: 10px 0;
+            background: #e8f4f8; border: 2px solid #17a2b8;
+            border-radius: 4px; padding: 12px; margin: 10px 0;
         }
-
         .navigation-section h4 {
-            color: #17a2b8;
-            font-size: 12px;
-            margin-bottom: 8px;
+            color: #17a2b8; font-size: 12px; margin-bottom: 8px;
         }
-
-        .navigation-info {
-            font-size: 11px;
-            color: #555;
-            margin-bottom: 8px;
-        }
-
+        .navigation-info { font-size: 11px; color: #555; margin-bottom: 8px; }
         @media (max-width: 768px) {
-            .container {
-                flex-direction: column;
-            }
-
+            .container { flex-direction: column; }
             .sidebar {
-                width: 100%;
-                max-height: 40vh;
-                border-right: none;
-                border-bottom: 3px solid #0066cc;
+                width: 100%; max-height: 40vh;
+                border-right: none; border-bottom: 3px solid #0066cc;
             }
-
-            #map {
-                height: 60vh;
-            }
+            #map { height: 60vh; }
         }
     </style>
 </head>
@@ -475,6 +244,10 @@
                     <div class="legend-color" style="background: #9467bd;"></div>
                     <span>Local clicado</span>
                 </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ff00ff;"></div>
+                    <span>Rota OSRM</span>
+                </div>
             </div>
         </div>
     </div>
@@ -494,6 +267,7 @@
         let selectedSearchLocation = null;
         let selectedMapClickLocation = null;
         let mapClickMarker = null;
+        let routePolyline = null;
 
         function initMap() {
             const defaultLocation = [-30.0326, -51.2093];
@@ -525,84 +299,6 @@
 
             getCurrentLocation();
             loadFavorites();
-        }
-
-        function handleMapClick(latlng) {
-            selectedMapClickLocation = {
-                lat: latlng.lat,
-                lng: latlng.lng
-            };
-
-            if (mapClickMarker) {
-                map.removeLayer(mapClickMarker);
-            }
-
-            mapClickMarker = L.marker([latlng.lat, latlng.lng], {
-                icon: L.icon({
-                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-purple.png',
-                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-                    iconSize: [25, 41],
-                    iconAnchor: [12, 41],
-                    popupAnchor: [1, -34],
-                    shadowSize: [41, 41]
-                })
-            }).addTo(map);
-
-            const messageDiv = document.getElementById('mapClickMessage');
-            messageDiv.innerHTML = `<div class="success-msg">✅ Local marcado! Lat: ${latlng.lat.toFixed(6)}, Lng: ${latlng.lng.toFixed(6)}</div>`;
-
-            document.getElementById('mapClickNavSection').style.display = 'block';
-            document.getElementById('mapClickInfo').textContent = `Local: ${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`;
-
-            mapClickMode = false;
-            document.getElementById('map').classList.remove('click-mode');
-            document.getElementById('mapClickBtn').textContent = '🖱️ Ativar Modo Click';
-            document.getElementById('mapClickBtn').classList.remove('btn-active');
-        }
-
-        function toggleMapClick() {
-            mapClickMode = !mapClickMode;
-            const btn = document.getElementById('mapClickBtn');
-            const msgDiv = document.getElementById('mapClickMessage');
-
-            if (mapClickMode) {
-                btn.textContent = '✓ Modo Click Ativo - Clique no Mapa';
-                btn.classList.add('btn-active');
-                msgDiv.innerHTML = '<div class="info-msg">ℹ️ Modo click ativado! Clique no mapa para marcar um local.</div>';
-                document.getElementById('map').classList.add('click-mode');
-            } else {
-                btn.textContent = '🖱️ Ativar Modo Click';
-                btn.classList.remove('btn-active');
-                msgDiv.innerHTML = '';
-                document.getElementById('map').classList.remove('click-mode');
-            }
-        }
-
-        function navigateToMapClick() {
-            if (!selectedMapClickLocation) {
-                alert('❌ Nenhum local selecionado!');
-                return;
-            }
-
-            if (!currentLocation) {
-                alert('❌ Localização atual não disponível!');
-                return;
-            }
-
-            alert(`🧭 Navegando para: ${selectedMapClickLocation.lat.toFixed(6)}, ${selectedMapClickLocation.lng.toFixed(6)}`);
-            
-            const distance = calculateDistanceInMeters(currentLocation, selectedMapClickLocation);
-            alert(`📏 Distância: ${distance.toFixed(0)} metros`);
-        }
-
-        function cancelMapClickNav() {
-            document.getElementById('mapClickNavSection').style.display = 'none';
-            if (mapClickMarker) {
-                map.removeLayer(mapClickMarker);
-                mapClickMarker = null;
-            }
-            selectedMapClickLocation = null;
-            document.getElementById('mapClickMessage').innerHTML = '';
         }
 
         function getCurrentLocation() {
@@ -676,6 +372,14 @@
             );
         }
 
+        function stopTracking() {
+            if (watchId) {
+                navigator.geolocation.clearWatch(watchId);
+                isTracking = false;
+                alert('⏹️ Rastreamento parado!');
+            }
+        }
+
         function calculateDistance(loc1, loc2) {
             const lat1 = loc1.lat * Math.PI / 180;
             const lat2 = loc2.lat * Math.PI / 180;
@@ -700,17 +404,8 @@
             return R * c;
         }
 
-        function stopTracking() {
-            if (watchId) {
-                navigator.geolocation.clearWatch(watchId);
-                isTracking = false;
-                alert('⏹️ Rastreamento parado!');
-            }
-        }
-
         function updatePath() {
             const latlngs = pathCoordinates.map(coord => [coord.lat, coord.lng]);
-            
             if (pathPolyline) {
                 pathPolyline.setLatLngs(latlngs);
             } else {
@@ -734,33 +429,52 @@
             }
         }
 
-        // Autocomplete
+        // -------- AUTOCOMPLETE E BUSCA (COM NÚMERO) ----------
+
         document.getElementById('addressInput').addEventListener('input', function(e) {
             const value = e.target.value.trim();
-            
             if (value.length < 3) {
                 document.getElementById('suggestions').classList.remove('show');
                 return;
             }
-
             clearTimeout(autocompleteTimeout);
             autocompleteTimeout = setTimeout(() => {
                 fetchSuggestions(value);
             }, 300);
         });
 
+        function buildStructuredUrl(query, limit) {
+            const base = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=${limit}&countrycodes=br`;
+            const regex = /^(.+?)\\s+(\\d+)\\s*(.*)$/; // rua + número + resto
+            const match = query.match(regex);
+            if (match) {
+                const streetName = match[1].trim();
+                const number = match[2].trim();
+                const rest = match[3].trim();
+                const city = rest || 'Porto Alegre';
+                const streetParam = encodeURIComponent(number + ' ' + streetName);
+                const cityParam = encodeURIComponent(city);
+                const stateParam = encodeURIComponent('Rio Grande do Sul');
+                const countryParam = encodeURIComponent('Brasil');
+                // Busca estruturada: street/city/state/country (sem q=)
+                return `${base}&street=${streetParam}&city=${cityParam}&state=${stateParam}&country=${countryParam}`;
+            } else {
+                // Busca normal q= quando não tiver número
+                return `${base}&q=${encodeURIComponent(query)}`;
+            }
+        }
+
         function fetchSuggestions(query) {
-            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=8&addressdetails=1`)
+            const url = buildStructuredUrl(query, 8);
+            fetch(url)
                 .then(response => response.json())
                 .then(data => {
                     const suggestionsDiv = document.getElementById('suggestions');
                     suggestionsDiv.innerHTML = '';
-
                     if (data.length === 0) {
                         suggestionsDiv.classList.remove('show');
                         return;
                     }
-
                     data.forEach(result => {
                         const item = document.createElement('div');
                         item.className = 'suggestion-item';
@@ -768,11 +482,12 @@
                         item.onclick = () => {
                             document.getElementById('addressInput').value = result.display_name;
                             suggestionsDiv.classList.remove('show');
-                            searchAddressFromCoords(parseFloat(result.lat), parseFloat(result.lon), result.display_name);
+                            const lat = parseFloat(result.lat);
+                            const lng = parseFloat(result.lon);
+                            searchAddressFromCoords(lat, lng, result.display_name);
                         };
                         suggestionsDiv.appendChild(item);
                     });
-
                     suggestionsDiv.classList.add('show');
                 })
                 .catch(error => console.error('Erro:', error));
@@ -785,36 +500,32 @@
             document.getElementById('navigationSection').style.display = 'none';
             clearMarkers();
             selectedSearchLocation = null;
+            clearRoute();
         }
 
         function searchAddress() {
             const address = document.getElementById('addressInput').value.trim();
             const messageDiv = document.getElementById('searchMessage');
-
             if (!address) {
                 messageDiv.innerHTML = '<div class="error-msg">⚠️ Digite um endereço!</div>';
                 return;
             }
-
             messageDiv.innerHTML = '<div class="success-msg">🔍 Buscando...</div>';
-
-            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=5`)
+            const url = buildStructuredUrl(address, 5);
+            fetch(url)
                 .then(response => response.json())
                 .then(data => {
                     clearMarkers();
-
+                    clearRoute();
                     if (data.length === 0) {
                         messageDiv.innerHTML = '<div class="error-msg">❌ Endereço não encontrado!</div>';
                         return;
                     }
-
                     messageDiv.innerHTML = `<div class="success-msg">✅ ${data.length} resultado(s) encontrado(s)</div>`;
                     document.getElementById('suggestions').classList.remove('show');
-
                     data.forEach((result, index) => {
                         const lat = parseFloat(result.lat);
                         const lng = parseFloat(result.lon);
-
                         const marker = L.marker([lat, lng], {
                             icon: L.icon({
                                 iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
@@ -825,9 +536,7 @@
                                 shadowSize: [41, 41]
                             })
                         }).bindPopup(result.display_name).addTo(map);
-
                         searchResultsMarkers.push(marker);
-
                         if (index === 0) {
                             map.setView([lat, lng], 17);
                             selectedSearchLocation = { lat: lat, lng: lng, name: result.display_name };
@@ -844,9 +553,9 @@
 
         function searchAddressFromCoords(lat, lng, display_name) {
             clearMarkers();
+            clearRoute();
             const messageDiv = document.getElementById('searchMessage');
             messageDiv.innerHTML = `<div class="success-msg">✅ Endereço encontrado!</div>`;
-
             const marker = L.marker([lat, lng], {
                 icon: L.icon({
                     iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
@@ -857,7 +566,6 @@
                     shadowSize: [41, 41]
                 })
             }).bindPopup(display_name).addTo(map);
-
             searchResultsMarkers.push(marker);
             map.setView([lat, lng], 17);
             selectedSearchLocation = { lat: lat, lng: lng, name: display_name };
@@ -865,38 +573,139 @@
             document.getElementById('navigationInfo').textContent = `Destino: ${display_name}`;
         }
 
+        // -------- NAVEGAÇÃO / ROTAS (OSRM) ----------
+
+        function drawRoute(origin, dest) {
+            clearRoute();
+            const url = `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${dest.lng},${dest.lat}?overview=full&geometries=geojson`;
+            fetch(url)
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.routes || !data.routes.length) {
+                        alert('❌ Não foi possível traçar rota.');
+                        return;
+                    }
+                    const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+                    routePolyline = L.polyline(coords, {
+                        color: '#ff00ff',
+                        weight: 4,
+                        opacity: 0.9
+                    }).addTo(map);
+                    map.fitBounds(routePolyline.getBounds());
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert('❌ Erro ao traçar rota.');
+                });
+        }
+
+        function clearRoute() {
+            if (routePolyline) {
+                map.removeLayer(routePolyline);
+                routePolyline = null;
+            }
+        }
+
         function navigateToSearched() {
             if (!selectedSearchLocation) {
                 alert('❌ Nenhum endereço selecionado!');
                 return;
             }
-
             if (!currentLocation) {
                 alert('❌ Localização atual não disponível!');
                 return;
             }
-
             const distance = calculateDistanceInMeters(currentLocation, selectedSearchLocation);
-            alert(`🧭 Navegando para: ${selectedSearchLocation.name}\n📏 Distância: ${distance.toFixed(0)} metros`);
+            alert(`🧭 Navegando para: ${selectedSearchLocation.name}\n📏 Distância (reta): ${distance.toFixed(0)} metros`);
+            drawRoute(currentLocation, selectedSearchLocation);
         }
 
         function cancelNavigation() {
             document.getElementById('navigationSection').style.display = 'none';
             clearMarkers();
+            clearRoute();
             selectedSearchLocation = null;
         }
+
+        // -------- CLICK NO MAPA / NAVEGAÇÃO ----------
+
+        function handleMapClick(latlng) {
+            selectedMapClickLocation = { lat: latlng.lat, lng: latlng.lng };
+            if (mapClickMarker) {
+                map.removeLayer(mapClickMarker);
+            }
+            mapClickMarker = L.marker([latlng.lat, latlng.lng], {
+                icon: L.icon({
+                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-purple.png',
+                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41],
+                    popupAnchor: [1, -34],
+                    shadowSize: [41, 41]
+                })
+            }).addTo(map);
+            const messageDiv = document.getElementById('mapClickMessage');
+            messageDiv.innerHTML = `<div class="success-msg">✅ Local marcado! Lat: ${latlng.lat.toFixed(6)}, Lng: ${latlng.lng.toFixed(6)}</div>`;
+            document.getElementById('mapClickNavSection').style.display = 'block';
+            document.getElementById('mapClickInfo').textContent = `Local: ${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`;
+            mapClickMode = false;
+            document.getElementById('map').classList.remove('click-mode');
+            document.getElementById('mapClickBtn').textContent = '🖱️ Ativar Modo Click';
+            document.getElementById('mapClickBtn').classList.remove('btn-active');
+        }
+
+        function toggleMapClick() {
+            mapClickMode = !mapClickMode;
+            const btn = document.getElementById('mapClickBtn');
+            const msgDiv = document.getElementById('mapClickMessage');
+            if (mapClickMode) {
+                btn.textContent = '✓ Modo Click Ativo - Clique no Mapa';
+                btn.classList.add('btn-active');
+                msgDiv.innerHTML = '<div class="info-msg">ℹ️ Modo click ativado! Clique no mapa para marcar um local.</div>';
+                document.getElementById('map').classList.add('click-mode');
+            } else {
+                btn.textContent = '🖱️ Ativar Modo Click';
+                btn.classList.remove('btn-active');
+                msgDiv.innerHTML = '';
+                document.getElementById('map').classList.remove('click-mode');
+            }
+        }
+
+        function navigateToMapClick() {
+            if (!selectedMapClickLocation) {
+                alert('❌ Nenhum local selecionado!');
+                return;
+            }
+            if (!currentLocation) {
+                alert('❌ Localização atual não disponível!');
+                return;
+            }
+            const distance = calculateDistanceInMeters(currentLocation, selectedMapClickLocation);
+            alert(`🧭 Navegando para: ${selectedMapClickLocation.lat.toFixed(6)}, ${selectedMapClickLocation.lng.toFixed(6)}\n📏 Distância (reta): ${distance.toFixed(0)} metros`);
+            drawRoute(currentLocation, selectedMapClickLocation);
+        }
+
+        function cancelMapClickNav() {
+            document.getElementById('mapClickNavSection').style.display = 'none';
+            if (mapClickMarker) {
+                map.removeLayer(mapClickMarker);
+                mapClickMarker = null;
+            }
+            selectedMapClickLocation = null;
+            document.getElementById('mapClickMessage').innerHTML = '';
+            clearRoute();
+        }
+
+        // -------- FAVORITOS, MANUAL, EXPORT ----------
 
         function goToManualLocation() {
             const lat = parseFloat(document.getElementById('manualLat').value);
             const lng = parseFloat(document.getElementById('manualLng').value);
-
             if (isNaN(lat) || isNaN(lng)) {
                 alert('❌ Digite coordenadas válidas!');
                 return;
             }
-
             map.setView([lat, lng], 17);
-
             L.marker([lat, lng], {
                 icon: L.icon({
                     iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
@@ -907,7 +716,6 @@
                     shadowSize: [41, 41]
                 })
             }).addTo(map);
-
             alert('✅ Local encontrado!');
         }
 
@@ -916,21 +724,17 @@
                 alert('❌ Localização atual não disponível!');
                 return;
             }
-
             const name = document.getElementById('favoriteName').value.trim();
-
             if (!name) {
                 alert('❌ Digite um nome para o favorito!');
                 return;
             }
-
             const favorite = {
                 name: name,
                 lat: currentLocation.lat,
                 lng: currentLocation.lng,
                 timestamp: new Date().toLocaleString('pt-BR'),
             };
-
             favorites.push(favorite);
             localStorage.setItem('favorites', JSON.stringify(favorites));
             document.getElementById('favoriteName').value = '';
@@ -941,7 +745,6 @@
         function loadFavorites() {
             const list = document.getElementById('favoritesList');
             list.innerHTML = '';
-
             favorites.forEach((fav, index) => {
                 const item = document.createElement('div');
                 item.className = 'favorite-item';
@@ -962,7 +765,6 @@
         function goToFavorite(index) {
             const fav = favorites[index];
             map.setView([fav.lat, fav.lng], 17);
-
             L.marker([fav.lat, fav.lng], {
                 icon: L.icon({
                     iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
@@ -988,12 +790,10 @@
                 alert('❌ Nenhum trajeto para exportar!');
                 return;
             }
-
             let csv = 'Latitude,Longitude\n';
             pathCoordinates.forEach(coord => {
                 csv += `${coord.lat},${coord.lng}\n`;
             });
-
             const blob = new Blob([csv], { type: 'text/csv' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -1016,13 +816,11 @@
                     searchAddress();
                 }
             });
-
             document.addEventListener('click', function(e) {
                 if (!e.target.closest('.search-container')) {
                     document.getElementById('suggestions').classList.remove('show');
                 }
             });
-
             initMap();
         });
     </script>
