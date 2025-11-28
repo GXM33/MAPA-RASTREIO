@@ -60,7 +60,7 @@
             font-size: 20px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
             transition: all 0.3s ease;
-            z-index: 2000; /* mais alto para não sumir */
+            z-index: 2000;
         }
 
         .location-button:hover {
@@ -434,7 +434,6 @@
             color: #c92a2a;
         }
 
-        /* ===== HISTÓRICO DE ROTAS ===== */
         .historico-section {
             margin-top: 20px;
             border-top: 2px solid #e0e0e0;
@@ -676,7 +675,6 @@
     </div>
 
     <script>
-        // ============= VARIÁVEIS GLOBAIS =============
         let map;
         let userMarker;
         let trajetoPolyline;
@@ -693,7 +691,6 @@
         let pontos_capturados = 0;
         let historico = [];
 
-        // ============= INICIALIZAÇÃO DO MAPA =============
         function inicializarMapa() {
             if (map) return;
 
@@ -714,12 +711,11 @@
             }).addTo(map);
 
             rotaPolyline = L.polyline([], {
-                color: '#667eea',
-                weight: 3,
-                opacity: 0.6,
+                color: '#9b59b6',   // roxo para rota nas ruas
+                weight: 4,
+                opacity: 0.85,
                 lineCap: 'round',
-                lineJoin: 'round',
-                dashArray: '5, 5'
+                lineJoin: 'round'
             }).addTo(map);
 
             userMarker = L.circleMarker([-30.0326, -51.2093], {
@@ -736,7 +732,7 @@
                 zIndex: 900
             }).addTo(map).bindPopup('Destino');
 
-            // Clique no mapa para definir destino
+            // clique no mapa define destino
             map.on('click', selecionarDestinoPorClique);
 
             carregarHistorico();
@@ -859,27 +855,20 @@
                     [lat, lng]
                 );
                 map.fitBounds(bounds, { padding: [100, 100] });
-
-                const rota = [[ultimaPosicao.lat, ultimaPosicao.lng], [lat, lng]];
-                rotaPolyline.setLatLngs(rota);
             }
 
-            mostrarAlerta(`Rota para: ${result.display_name}`, 'success');
+            mostrarAlerta(`Destino definido: ${result.display_name} (clique em "Navegar até destino" para traçar rota pelas ruas)`, 'success');
         }
 
-        // Selecionar destino clicando no mapa
         function selecionarDestinoPorClique(e) {
             destinoSelecionado = { lat: e.latlng.lat, lng: e.latlng.lng };
             destinoMarker.setLatLng(e.latlng);
+            rotaPolyline.setLatLngs([]); // limpa rota antiga
 
-            if (ultimaPosicao) {
-                const rota = [[ultimaPosicao.lat, ultimaPosicao.lng], [destinoSelecionado.lat, destinoSelecionado.lng]];
-                rotaPolyline.setLatLngs(rota);
-            }
-
-            mostrarAlerta('Destino selecionado no mapa. Clique em "Navegar até destino" para traçar a rota.', 'success');
+            mostrarAlerta('Destino selecionado no mapa. Clique em "Navegar até destino" para traçar a rota pelas ruas.', 'success');
         }
 
+        // Rota real seguindo ruas com OSRM
         function navegarParaDestino() {
             if (!destinoSelecionado) {
                 mostrarAlerta('Selecione um destino clicando no mapa ou buscando um endereço.', 'danger');
@@ -890,16 +879,37 @@
                 return;
             }
 
-            const rota = [[ultimaPosicao.lat, ultimaPosicao.lng], [destinoSelecionado.lat, destinoSelecionado.lng]];
-            rotaPolyline.setLatLngs(rota);
+            const startLng = ultimaPosicao.lng;
+            const startLat = ultimaPosicao.lat;
+            const endLng = destinoSelecionado.lng;
+            const endLat = destinoSelecionado.lat;
 
-            const bounds = L.latLngBounds(
-                [ultimaPosicao.lat, ultimaPosicao.lng],
-                [destinoSelecionado.lat, destinoSelecionado.lng]
-            );
-            map.fitBounds(bounds, { padding: [100, 100] });
+            const url = `https://router.project-osrm.org/route/v1/driving/${startLng},${startLat};${endLng},${endLat}?overview=full&geometries=geojson`;
 
-            mostrarAlerta('Navegação até o destino iniciada (linha roxa).', 'success');
+            mostrarAlerta('Calculando rota pelas ruas...', 'info');
+
+            fetch(url)
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.routes || data.routes.length === 0) {
+                        mostrarAlerta('Não foi possível calcular rota.', 'danger');
+                        return;
+                    }
+
+                    const coords = data.routes[0].geometry.coordinates;
+                    const latlngs = coords.map(c => [c[1], c[0]]); // [lat, lng]
+
+                    rotaPolyline.setLatLngs(latlngs);
+
+                    const bounds = L.latLngBounds(latlngs);
+                    map.fitBounds(bounds, { padding: [80, 80] });
+
+                    mostrarAlerta('Rota traçada pelas ruas (linha roxa).', 'success');
+                })
+                .catch(err => {
+                    console.error('Erro rota OSRM:', err);
+                    mostrarAlerta('Erro ao obter rota pelas ruas.', 'danger');
+                });
         }
 
         function limparDestino() {
@@ -910,7 +920,6 @@
             mostrarAlerta('Destino removido', 'info');
         }
 
-        // ============= RASTREAMENTO COM ALTA PRECISÃO =============
         function iniciarRastreamento() {
             if (!navigator.geolocation) {
                 mostrarAlerta('Geolocalização não suportada', 'danger');
@@ -981,11 +990,6 @@
             }
 
             atualizarIndicadorPrecisao(accuracy);
-
-            if (destinoSelecionado) {
-                const rota = [[latitude, longitude], [destinoSelecionado.lat, destinoSelecionado.lng]];
-                rotaPolyline.setLatLngs(rota);
-            }
         }
 
         function calcularDistancia(lat1, lng1, lat2, lng2) {
@@ -1073,11 +1077,10 @@
             mostrarAlerta(`✅ Trajeto exportado! ${pontosTrajeto.length} pontos.`, 'success');
         }
 
-        // ============= HISTÓRICO =============
         function salvarNoHistorico() {
             const rota = {
                 id: Date.now(),
-                data: new Date().toLocaleString('pt-BR'),
+                 new Date().toLocaleString('pt-BR'),
                 distancia: (distanciaTotal / 1000).toFixed(3),
                 tempo: formatarTempo(Date.now() - tempoInicio),
                 pontos: pontosTrajeto,
