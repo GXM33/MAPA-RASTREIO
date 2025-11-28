@@ -446,6 +446,7 @@
 
         <div class="button-group">
           <button class="btn btn-warning" id="btnLimparTrajeto">🗑 Limpar trajeto</button>
+          <button class="btn btn-info" id="btnIrLocalizacao">📍 Ir para localização atual</button>
         </div>
 
         <div class="divider"></div>
@@ -571,9 +572,8 @@
       document.getElementById("btnLimparDestino").addEventListener("click", limparDestino);
       document.getElementById("btnLimparTrajeto").addEventListener("click", limparTrajeto);
 
-      document.getElementById("btnCentralizar").addEventListener("click", function () {
-        if (ultimaPosicao) map.setView([ultimaPosicao.lat, ultimaPosicao.lng], 18);
-      });
+      document.getElementById("btnCentralizar").addEventListener("click", irParaLocalizacaoAtual);
+      document.getElementById("btnIrLocalizacao").addEventListener("click", irParaLocalizacaoAtual);
 
       const input = document.getElementById("inputEndereco");
       input.addEventListener("keydown", function (e) {
@@ -584,6 +584,15 @@
           }
         }
       });
+    }
+
+    function irParaLocalizacaoAtual() {
+      if (ultimaPosicao) {
+        // Recentraliza, mantendo o zoom atual
+        map.setView([ultimaPosicao.lat, ultimaPosicao.lng]);
+      } else {
+        mostrarAlerta("Localização atual ainda não obtida.", "error");
+      }
     }
 
     function mostrarAlerta(msg, tipo) {
@@ -652,7 +661,7 @@
       badge.className = "status-badge status-ativo";
       mostrarAlerta("Rastreamento iniciado.", "success");
 
-      // watchPosition com mais pontos e sem mudar zoom automaticamente
+      // watchPosition com mais pontos e mantendo zoom ajustado pelo usuário
       watchId = navigator.geolocation.watchPosition(
         function (pos) {
           const { latitude, longitude, accuracy, speed } = pos.coords;
@@ -674,8 +683,9 @@
             }
           }
 
-          // Atualiza só o marcador; não mexe no zoom
+          // Atualiza marcador e mantém o mapa centrado na posição atual, SEM mexer no zoom
           userMarker.setLatLng([latitude, longitude]);
+          map.setView([latitude, longitude]); // usa o zoom atual do usuário
 
           atualizarPosicaoUI(latitude, longitude);
           atualizarEstatisticasUI();
