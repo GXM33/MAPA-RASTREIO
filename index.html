@@ -4,8 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rastreador de Trajeto - Navegação em Tempo Real</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+    <!-- Leaflet CSS (CDN oficial recomendado) -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+
     <style>
         * {
             margin: 0;
@@ -29,18 +36,19 @@
         .container {
             display: flex;
             width: 100%;
-            height: 100vh;
+            height: 100vh; /* garante altura total da tela */
         }
 
         .map-container {
             flex: 1;
             position: relative;
             background: #e0e0e0;
+            height: 100%; /* importante para o #map herdar 100% */
         }
 
         #map {
             width: 100%;
-            height: 100%;
+            height: 100%; /* mapa ocupa todo o contêiner */
         }
 
         .location-button {
@@ -60,7 +68,7 @@
             font-size: 20px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
             transition: all 0.3s ease;
-            z-index: 2000;
+            z-index: 2000; /* garante que o botão fique por cima do mapa */
         }
 
         .location-button:hover {
@@ -674,6 +682,13 @@
         </div>
     </div>
 
+    <!-- Leaflet JS (CDN oficial) deve vir ANTES do seu script -->
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+
     <script>
         let map;
         let userMarker;
@@ -711,7 +726,7 @@
             }).addTo(map);
 
             rotaPolyline = L.polyline([], {
-                color: '#9b59b6',   // roxo para rota nas ruas
+                color: '#9b59b6',
                 weight: 4,
                 opacity: 0.85,
                 lineCap: 'round',
@@ -732,7 +747,6 @@
                 zIndex: 900
             }).addTo(map).bindPopup('Destino');
 
-            // clique no mapa define destino
             map.on('click', selecionarDestinoPorClique);
 
             carregarHistorico();
@@ -857,18 +871,17 @@
                 map.fitBounds(bounds, { padding: [100, 100] });
             }
 
-            mostrarAlerta(`Destino definido: ${result.display_name} (clique em "Navegar até destino" para traçar rota pelas ruas)`, 'success');
+            mostrarAlerta('Destino definido. Clique em "Navegar até destino" para traçar rota pelas ruas.', 'success');
         }
 
         function selecionarDestinoPorClique(e) {
             destinoSelecionado = { lat: e.latlng.lat, lng: e.latlng.lng };
             destinoMarker.setLatLng(e.latlng);
-            rotaPolyline.setLatLngs([]); // limpa rota antiga
+            rotaPolyline.setLatLngs([]);
 
-            mostrarAlerta('Destino selecionado no mapa. Clique em "Navegar até destino" para traçar a rota pelas ruas.', 'success');
+            mostrarAlerta('Destino selecionado no mapa. Clique em "Navegar até destino" para rota pelas ruas.', 'success');
         }
 
-        // Rota real seguindo ruas com OSRM
         function navegarParaDestino() {
             if (!destinoSelecionado) {
                 mostrarAlerta('Selecione um destino clicando no mapa ou buscando um endereço.', 'danger');
@@ -897,7 +910,7 @@
                     }
 
                     const coords = data.routes[0].geometry.coordinates;
-                    const latlngs = coords.map(c => [c[1], c[0]]); // [lat, lng]
+                    const latlngs = coords.map(c => [c[1], c[0]]);
 
                     rotaPolyline.setLatLngs(latlngs);
 
