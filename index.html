@@ -75,7 +75,7 @@
     }
 
     .sidebar {
-      width: 340px;
+      width: 360px;
       background: white;
       box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
       display: flex;
@@ -303,6 +303,95 @@
       color: #1e3c72;
     }
 
+    /* Histórico de rotas */
+    .history-section {
+      margin-top: 15px;
+      border-top: 2px solid #e0e0e0;
+      padding-top: 10px;
+    }
+
+    .history-title {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .history-count {
+      font-size: 11px;
+      background: #667eea;
+      color: #fff;
+      padding: 2px 8px;
+      border-radius: 12px;
+    }
+
+    .history-list {
+      max-height: 180px;
+      overflow-y: auto;
+    }
+
+    .history-item {
+      background: #f8f9fa;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      padding: 8px;
+      margin-bottom: 8px;
+      font-size: 12px;
+    }
+
+    .history-name-input {
+      width: 100%;
+      padding: 6px;
+      border-radius: 4px;
+      border: 1px solid #d0d0d0;
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+
+    .history-meta {
+      font-size: 11px;
+      color: #666;
+      margin-bottom: 6px;
+    }
+
+    .history-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .btn-history-view {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-history-delete {
+      background: #ff6b6b;
+      color: white;
+      border: none;
+      padding: 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .history-empty {
+      font-size: 12px;
+      color: #999;
+      text-align: center;
+      padding: 10px;
+    }
+
     @media (max-width: 768px) {
       .container {
         flex-direction: column;
@@ -343,7 +432,6 @@
         <div class="form-group">
           <label>📍 Buscar endereço (ou clique no mapa)</label>
           <input type="text" id="inputEndereco" placeholder="Ex: Rua das Flores, Porto Alegre" />
-          <div id="searchResults" class="search-results"></div>
         </div>
 
         <div class="button-group full">
@@ -392,6 +480,17 @@
           <h3>Status GPS</h3>
           <p id="statusGPS">Desconectado</p>
         </div>
+
+        <!-- HISTÓRICO DE ROTAS -->
+        <div class="history-section">
+          <div class="history-title">
+            📋 Últimas rotas
+            <span class="history-count" id="historyCount">0 / 5</span>
+          </div>
+          <div class="history-list" id="historyList">
+            <div class="history-empty">Nenhuma rota registrada ainda</div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -404,12 +503,12 @@
   ></script>
 
   <script>
-    // Variáveis globais
     let map;
     let userMarker;
     let trajetoPolyline;
     let rotaPolyline;
     let destinoMarker;
+
     let rastreando = false;
     let watchId = null;
     let ultimaPosicao = null;
@@ -418,10 +517,15 @@
     let inicioMs = null;
     let destino = null;
 
-    // Inicializa mapa ao carregar a página
+    let historicoRotas = []; // máx. 5
+    let historyPolyline = null;
+
+    const STORAGE_KEY = "rastreador_historico_5";
+
     window.addEventListener("load", function () {
       inicializarMapa();
       configurarBotoes();
+      carregarHistorico();
     });
 
     function inicializarMapa() {
@@ -468,12 +572,9 @@
       document.getElementById("btnLimparTrajeto").addEventListener("click", limparTrajeto);
 
       document.getElementById("btnCentralizar").addEventListener("click", function () {
-        if (ultimaPosicao) {
-          map.setView([ultimaPosicao.lat, ultimaPosicao.lng], 18);
-        }
+        if (ultimaPosicao) map.setView([ultimaPosicao.lat, ultimaPosicao.lng], 18);
       });
 
-      // Busca simples (apenas definindo destino pelo nome, sem lista)
       const input = document.getElementById("inputEndereco");
       input.addEventListener("keydown", function (e) {
         if (e.key === "Enter") {
@@ -516,18 +617,17 @@
           map.setView([latitude, longitude], 18);
           userMarker.setLatLng([latitude, longitude]);
 
-          atualizarPosicaoUI(latitude, longitude, accuracy);
+          atualizarPosicaoUI(latitude, longitude);
           document.getElementById("statusGPS").textContent = "✅ Conectado";
-          document.getElementById("statusBadge").textContent =
-            "🟡 Parado (pronto para rastrear)";
-          document.getElementById("statusBadge").className =
-            "status-badge status-aguardando";
+          const badge = document.getElementById("statusBadge");
+          badge.textContent = "🟡 Parado (pronto para rastrear)";
+          badge.className = "status-badge status-aguardando";
 
           mostrarAlerta("Localização inicial obtida. Pronto para rastrear.", "success");
           setTimeout(limparAlerta, 3000);
         },
         function (err) {
-          mostrarAlerta("Erro ao obter localização. Verifique as permissões do navegador.", "error");
+          mostrarAlerta("Erro ao obter localização. Verifique as permissões.", "error");
           document.getElementById("statusGPS").textContent = "❌ Sem GPS";
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
@@ -544,42 +644,42 @@
       pontos = [];
       distanciaTotal = 0;
       inicioMs = Date.now();
+
       document.getElementById("btnIniciar").disabled = true;
       document.getElementById("btnParar").disabled = false;
-      document.getElementById("statusBadge").textContent = "🟢 Rastreando";
-      document.getElementById("statusBadge").className =
-        "status-badge status-ativo";
-
+      const badge = document.getElementById("statusBadge");
+      badge.textContent = "🟢 Rastreando";
+      badge.className = "status-badge status-ativo";
       mostrarAlerta("Rastreamento iniciado.", "success");
 
+      // watchPosition com mais pontos e sem mudar zoom automaticamente
       watchId = navigator.geolocation.watchPosition(
         function (pos) {
           const { latitude, longitude, accuracy, speed } = pos.coords;
           const nova = { lat: latitude, lng: longitude };
 
-          if (ultimaPosicao) {
+          if (!ultimaPosicao) {
+            pontos.push(nova);
+            ultimaPosicao = nova;
+            trajetoPolyline.setLatLngs(pontos);
+          } else {
             const d = calcularDistancia(ultimaPosicao, nova);
-            if (d > 1) {
+
+            // Captura praticamente todo movimento (0,2 m) para traçado bem detalhado
+            if (d > 0.2) {
               distanciaTotal += d;
               pontos.push(nova);
+              ultimaPosicao = nova;
               trajetoPolyline.setLatLngs(pontos);
             }
-          } else {
-            pontos.push(nova);
           }
 
-          ultimaPosicao = nova;
-
+          // Atualiza só o marcador; não mexe no zoom
           userMarker.setLatLng([latitude, longitude]);
-          map.setView([latitude, longitude], 18);
 
-          atualizarPosicaoUI(latitude, longitude, accuracy);
+          atualizarPosicaoUI(latitude, longitude);
           atualizarEstatisticasUI();
           document.getElementById("statusGPS").textContent = "✅ Conectado";
-
-          if (speed && speed > 0) {
-            // poderia mostrar velocidade futuramente
-          }
         },
         function (err) {
           console.error(err);
@@ -588,7 +688,6 @@
         { enableHighAccuracy: true, timeout: 2000, maximumAge: 0 }
       );
 
-      // Atualiza cronômetro
       atualizarTempoRastreamento();
     }
 
@@ -600,10 +699,14 @@
       }
       document.getElementById("btnIniciar").disabled = false;
       document.getElementById("btnParar").disabled = true;
-      document.getElementById("statusBadge").textContent = "🟡 Parado";
-      document.getElementById("statusBadge").className =
-        "status-badge status-parado";
+      const badge = document.getElementById("statusBadge");
+      badge.textContent = "🟡 Parado";
+      badge.className = "status-badge status-parado";
       mostrarAlerta("Rastreamento parado.", "info");
+
+      if (pontos.length > 1) {
+        salvarRotaNoHistorico();
+      }
     }
 
     function atualizarTempoRastreamento() {
@@ -613,7 +716,7 @@
       requestAnimationFrame(atualizarTempoRastreamento);
     }
 
-    function atualizarPosicaoUI(lat, lng, accuracy) {
+    function atualizarPosicaoUI(lat, lng) {
       document.getElementById("latitude").textContent = lat.toFixed(6);
       document.getElementById("longitude").textContent = lng.toFixed(6);
     }
@@ -649,7 +752,6 @@
       return h > 0 ? `${hh}:${mm}:${ss}` : `${mm}:${ss}`;
     }
 
-    // Clique no mapa define destino
     function onMapClick(e) {
       destino = { lat: e.latlng.lat, lng: e.latlng.lng };
       destinoMarker.setLatLng(e.latlng);
@@ -660,7 +762,6 @@
       );
     }
 
-    // Navegar até destino usando OSRM (rota real pelas ruas)
     function navegarParaDestino() {
       if (!destino) {
         mostrarAlerta("Selecione um destino clicando no mapa ou buscando endereço.", "error");
@@ -705,15 +806,26 @@
       mostrarAlerta("Destino removido.", "info");
     }
 
+    // LIMPAR TODAS AS LINHAS (AZUL, ROXA E HISTÓRICO)
     function limparTrajeto() {
+      if (!confirm("Limpar todo o trajeto e todas as rotas desenhadas no mapa?")) return;
+
       pontos = [];
       distanciaTotal = 0;
       trajetoPolyline.setLatLngs([]);
+
+      if (rotaPolyline) {
+        rotaPolyline.setLatLngs([]);
+      }
+      if (historyPolyline) {
+        map.removeLayer(historyPolyline);
+        historyPolyline = null;
+      }
+
       atualizarEstatisticasUI();
-      mostrarAlerta("Trajeto limpo.", "info");
+      mostrarAlerta("Todas as linhas do mapa foram limpas.", "info");
     }
 
-    // Busca simples no Nominatim para definir destino
     function buscarEnderecoNominatim(texto) {
       const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
         texto
@@ -742,6 +854,131 @@
           mostrarAlerta("Erro ao buscar endereço.", "error");
         });
     }
+
+    // ---------- HISTÓRICO DE ROTAS (máx. 5) ----------
+    function salvarRotaNoHistorico() {
+      const agora = new Date();
+      const nomePadrao =
+        "Rota " +
+        agora.toLocaleDateString("pt-BR") +
+        " " +
+        agora.toLocaleTimeString("pt-BR");
+
+      const rota = {
+        id: Date.now(),
+        nome: nomePadrao,
+        distanciaKm: (distanciaTotal / 1000).toFixed(3),
+        duracaoMs: Date.now() - inicioMs,
+        pontos: [...pontos],
+      };
+
+      historicoRotas.unshift(rota);
+      if (historicoRotas.length > 5) {
+        historicoRotas = historicoRotas.slice(0, 5);
+      }
+
+      salvarHistoricoStorage();
+      renderizarHistorico();
+    }
+
+    function salvarHistoricoStorage() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(historicoRotas));
+      } catch (e) {
+        console.error("Erro ao salvar histórico:", e);
+      }
+    }
+
+    function carregarHistorico() {
+      try {
+        const data = localStorage.getItem(STORAGE_KEY);
+        if (data) historicoRotas = JSON.parse(data);
+      } catch (e) {
+        historicoRotas = [];
+      }
+      renderizarHistorico();
+    }
+
+    function renderizarHistorico() {
+      const listEl = document.getElementById("historyList");
+      const countEl = document.getElementById("historyCount");
+
+      countEl.textContent = `${historicoRotas.length} / 5`;
+
+      if (historicoRotas.length === 0) {
+        listEl.innerHTML =
+          '<div class="history-empty">Nenhuma rota registrada ainda</div>';
+        return;
+      }
+
+      listEl.innerHTML = historicoRotas
+        .map(
+          (rota) => `
+        <div class="history-item">
+          <input
+            class="history-name-input"
+            value="${rota.nome}"
+            onchange="editarNomeRota(${rota.id}, this.value)"
+          />
+          <div class="history-meta">
+            📍 ${rota.distanciaKm} km &nbsp;•&nbsp; ⏱️ ${formatarTempo(
+              rota.duracaoMs
+            )}
+          </div>
+          <div class="history-buttons">
+            <button class="btn-history-view" onclick="verRotaHistorico(${rota.id})">
+              👁 Ver
+            </button>
+            <button class="btn-history-delete" onclick="excluirRotaHistorico(${rota.id})">
+              🗑 Excluir
+            </button>
+          </div>
+        </div>
+      `
+        )
+        .join("");
+    }
+
+    window.editarNomeRota = function (id, novoNome) {
+      const rota = historicoRotas.find((r) => r.id === id);
+      if (!rota) return;
+      rota.nome = novoNome || rota.nome;
+      salvarHistoricoStorage();
+    };
+
+    window.verRotaHistorico = function (id) {
+      const rota = historicoRotas.find((r) => r.id === id);
+      if (!rota || !rota.pontos || rota.pontos.length < 2) return;
+
+      if (historyPolyline) {
+        map.removeLayer(historyPolyline);
+      }
+
+      const latlngs = rota.pontos.map((p) => [p.lat, p.lng]);
+      historyPolyline = L.polyline(latlngs, {
+        color: "#ffa500",
+        weight: 4,
+        opacity: 0.9,
+      }).addTo(map);
+
+      const bounds = L.latLngBounds(latlngs);
+      map.fitBounds(bounds, { padding: [60, 60] });
+
+      mostrarAlerta(`Exibindo: ${rota.nome}`, "info");
+    };
+
+    window.excluirRotaHistorico = function (id) {
+      if (!confirm("Deseja realmente excluir esta rota do histórico?")) return;
+      historicoRotas = historicoRotas.filter((r) => r.id !== id);
+      salvarHistoricoStorage();
+      renderizarHistorico();
+      mostrarAlerta("Rota removida do histórico.", "success");
+
+      if (historyPolyline) {
+        map.removeLayer(historyPolyline);
+        historyPolyline = null;
+      }
+    };
   </script>
 </body>
 </html>
